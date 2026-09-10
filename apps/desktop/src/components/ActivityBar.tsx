@@ -1,0 +1,4 @@
+import { Icon } from "../App";
+export type ActivityView = "explorer" | "search" | "source" | "agent";
+const actions: { id: ActivityView; label: string; icon: "files" | "search" | "branch" | "agent" }[] = [{ id: "explorer", label: "Explorer", icon: "files" }, { id: "search", label: "Search", icon: "search" }, { id: "source", label: "Source control", icon: "branch" }, { id: "agent", label: "Helel agent", icon: "agent" }];
+export function ActivityBar({ active, onChange }: { active: ActivityView; onChange: (view: ActivityView) => void }) { return <nav className="activity-bar" aria-label="Primary navigation">{actions.map((action) => <button key={action.id} className={active === action.id ? "active" : ""} aria-label={action.label} aria-pressed={active === action.id} onClick={() => onChange(action.id)}><Icon name={action.icon} /></button>)}</nav>; }

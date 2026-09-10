@@ -43,7 +43,7 @@ def main() -> None:
         checks.append(("Tauri development build", [str(JS_BIN / "tauri"), "build", "--debug", "--no-bundle"], None))
     for label, command, env in checks:
         run(label, command, env)
-    print("\nPhase 0 verification passed.")
+    print("\nHelel verification passed.")
 
 
 if __name__ == "__main__":

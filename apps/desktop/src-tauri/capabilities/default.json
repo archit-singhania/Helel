@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Baseline capability with no privileged plugins",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:allow-open"]
 }

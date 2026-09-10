@@ -3,8 +3,8 @@
 | Phase | Outcome | Status |
 | --- | --- | --- |
 | 0 | Repository, documentation, workspaces, verification | Complete |
-| 1 | Desktop shell and application layout | Next |
-| 2 | Editor and IDE core | Planned |
+| 1 | Desktop shell and application layout | Complete |
+| 2 | Editor and IDE core | Next |
 | 3 | Filesystem, processes, Git, patches, security | Planned |
 | 4 | Parsing, indexing, symbols, context retrieval | Planned |
 | 5 | Agent state machine and deterministic tools | Planned |

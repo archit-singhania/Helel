@@ -1,6 +1,6 @@
 # Helel
 
-Helel is an offline-first autonomous software engineering environment. This repository currently contains the Phase 0 foundation: a Tauri desktop shell, Rust core, React/TypeScript frontend, Python ML workspace, shared contracts, architecture records, and one verification command.
+Helel is an offline-first autonomous software engineering environment. The repository now contains the Phase 1 desktop shell: a Tauri application with a React/TypeScript workbench, local preferences, themes, recent projects, and a native folder picker, backed by a Rust workspace and Python ML foundation.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ Run the browser frontend with `pnpm dev`, or the native desktop application with
 
 ## Project status
 
-Phase 0 establishes buildable boundaries only. Product features begin in Phase 1. See [the roadmap](docs/ROADMAP.md) and [the Phase 0 plan](docs/exec-plans/completed/P00-foundation.md).
+Phases 0 and 1 are complete. Editor functionality begins in Phase 2. See [the roadmap](docs/ROADMAP.md) and [the Phase 1 audit](docs/audits/phase-1.md).
 
 ## Cost and privacy
 
