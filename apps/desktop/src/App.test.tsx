@@ -5,6 +5,7 @@ vi.mock("./monaco", () => ({}));
 import { App } from "./App";
 import { isDirty, languageForPath, markSaved, updateTab, upsertTab } from "./ide";
 import { DEFAULT_SETTINGS, parseSettings, projectName, withRecentProject } from "./settings";
+import { parseCommand } from "./system";
 
 describe("desktop shell", () => {
   it("renders primary accessible landmarks", () => { const html = renderToStaticMarkup(<App />); expect(html).toContain("aria-label=\"Primary navigation\""); expect(html).toContain("aria-label=\"Editor\""); expect(html).toContain("aria-label=\"Helel agent\""); expect(html).toContain("aria-label=\"Terminal and problems\""); });
@@ -28,5 +29,12 @@ describe("editor state", () => {
     expect(languageForPath("src/App.tsx")).toBe("typescript");
     expect(languageForPath("README.md")).toBe("markdown");
     expect(languageForPath("unknown.xyz")).toBe("plaintext");
+  });
+});
+
+describe("terminal input", () => {
+  it("parses arguments without invoking a shell", () => {
+    expect(parseCommand('git commit -m "local change"')).toEqual({ command: "git", args: ["commit", "-m", "local change"] });
+    expect(parseCommand("sh -c 'unterminated")).toBeUndefined();
   });
 });

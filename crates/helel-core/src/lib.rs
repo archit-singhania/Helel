@@ -6,6 +6,7 @@ pub const fn product_name() -> &'static str {
     "Helel"
 }
 
+pub mod system;
 pub mod workspace;
 
 #[cfg(test)]

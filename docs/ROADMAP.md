@@ -5,8 +5,8 @@
 | 0 | Repository, documentation, workspaces, verification | Complete |
 | 1 | Desktop shell and application layout | Complete |
 | 2 | Editor and IDE core | Complete |
-| 3 | Filesystem, processes, Git, patches, security | Next |
-| 4 | Parsing, indexing, symbols, context retrieval | Planned |
+| 3 | Filesystem, processes, Git, patches, security | Complete |
+| 4 | Parsing, indexing, symbols, context retrieval | Next |
 | 5 | Agent state machine and deterministic tools | Planned |
 | 6 | Dataset and tokenizer pipeline | Planned |
 | 7 | Helel-22M pipeline validation model | Planned |
