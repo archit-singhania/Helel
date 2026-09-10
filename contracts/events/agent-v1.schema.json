@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "helel.events.agent.v1",
+  "type": "object",
+  "required": ["id", "objective", "phase", "plan", "observations", "step"],
+  "properties": {
+    "id": { "type": "integer" },
+    "objective": { "type": "string" },
+    "phase": { "enum": ["planning", "gathering", "executing", "verifying", "awaitingApproval", "completed", "failed", "cancelled"] },
+    "plan": { "type": "array", "items": { "type": "string" } },
+    "pendingTool": { "type": ["object", "null"] },
+    "observations": { "type": "array" },
+    "step": { "type": "integer" }
+  }
+}

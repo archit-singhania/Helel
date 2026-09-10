@@ -6,9 +6,9 @@
 | 1 | Desktop shell and application layout | Complete |
 | 2 | Editor and IDE core | Complete |
 | 3 | Filesystem, processes, Git, patches, security | Complete |
-| 4 | Parsing, indexing, symbols, context retrieval | Next |
-| 5 | Agent state machine and deterministic tools | Planned |
-| 6 | Dataset and tokenizer pipeline | Planned |
+| 4 | Parsing, indexing, symbols, context retrieval | Complete |
+| 5 | Agent state machine and deterministic tools | Complete |
+| 6 | Dataset and tokenizer pipeline | Next |
 | 7 | Helel-22M pipeline validation model | Planned |
 | 8 | Helel-46M product model | Planned |
 | 9 | Model and agent integration | Planned |

@@ -13,6 +13,7 @@ const SKIPPED_DIRECTORIES: &[&str] = &[
     "dist",
     ".venv",
     "__pycache__",
+    ".helel",
 ];
 
 #[derive(Debug, Clone)]

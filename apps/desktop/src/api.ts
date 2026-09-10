@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { SearchMatch, TreeEntry } from "./ide";
 import type { AuditEntry, GitSummary, ProcessStarted, Risk } from "./system";
+import type { AgentSession, CodeIndex, ContextHit, ReferenceMatch, SymbolMatch } from "./intelligence";
 
 export const workspaceApi = {
   open: (root: string) => invoke<TreeEntry[]>("open_workspace", { root }),
@@ -18,4 +19,12 @@ export const workspaceApi = {
   git: () => invoke<GitSummary>("git_status"),
   applyPatch: (patch: string, reverse: boolean, approved: boolean) => invoke<TreeEntry[]>("apply_workspace_patch", { patch, reverse, approved }),
   audit: () => invoke<AuditEntry[]>("audit_log"),
+  buildIndex: () => invoke<CodeIndex>("build_code_index"),
+  context: (query: string, limit = 20) => invoke<ContextHit[]>("code_context", { query, limit }),
+  definitions: (name: string, limit = 100) => invoke<SymbolMatch[]>("symbol_definitions", { name, limit }),
+  references: (name: string, limit = 500) => invoke<ReferenceMatch[]>("symbol_references", { name, limit }),
+  startAgent: (objective: string) => invoke<AgentSession>("start_agent_session", { objective }),
+  advanceAgent: (id: number, approved: boolean) => invoke<AgentSession>("advance_agent_session", { id, approved }),
+  listAgents: () => invoke<AgentSession[]>("list_agent_sessions"),
+  cancelAgent: (id: number) => invoke<AgentSession>("cancel_agent_session", { id }),
 };

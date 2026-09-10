@@ -6,6 +6,8 @@ pub const fn product_name() -> &'static str {
     "Helel"
 }
 
+pub mod agent;
+pub mod intelligence;
 pub mod system;
 pub mod workspace;
 
