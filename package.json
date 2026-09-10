@@ -1,0 +1,14 @@
+{
+  "name": "helel",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.0.0",
+  "scripts": {
+    "dev": "pnpm --filter @helel/desktop dev",
+    "build": "pnpm --filter @helel/desktop build",
+    "lint": "pnpm --filter @helel/desktop lint",
+    "test": "pnpm --filter @helel/desktop test",
+    "typecheck": "pnpm --filter @helel/desktop typecheck",
+    "tauri": "pnpm --filter @helel/desktop tauri"
+  }
+}

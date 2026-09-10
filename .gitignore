@@ -1,0 +1,16 @@
+target/
+node_modules/
+.pnpm-store/
+dist/
+*.log
+.DS_Store
+.idea/
+.vscode/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+ml/checkpoints/
+ml/data/
+apps/desktop/src-tauri/gen/

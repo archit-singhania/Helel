@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Helel",
+  "version": "0.1.0",
+  "identifier": "dev.helel.desktop",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "apps/desktop/node_modules/.bin/tsc -b apps/desktop && apps/desktop/node_modules/.bin/vite build apps/desktop",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{ "title": "Helel", "width": 1100, "height": 720, "minWidth": 800, "minHeight": 560 }],
+    "security": { "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:" }
+  },
+  "bundle": { "active": false }
+}

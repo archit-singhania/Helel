@@ -1,0 +1,20 @@
+[package]
+name = "helel-desktop"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "helel_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+helel-core = { path = "../../../crates/helel-core" }
+tauri = { version = "2", features = [] }
+
+[lints]
+workspace = true
