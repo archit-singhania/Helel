@@ -4,8 +4,8 @@
 | --- | --- | --- |
 | 0 | Repository, documentation, workspaces, verification | Complete |
 | 1 | Desktop shell and application layout | Complete |
-| 2 | Editor and IDE core | Next |
-| 3 | Filesystem, processes, Git, patches, security | Planned |
+| 2 | Editor and IDE core | Complete |
+| 3 | Filesystem, processes, Git, patches, security | Next |
 | 4 | Parsing, indexing, symbols, context retrieval | Planned |
 | 5 | Agent state machine and deterministic tools | Planned |
 | 6 | Dataset and tokenizer pipeline | Planned |

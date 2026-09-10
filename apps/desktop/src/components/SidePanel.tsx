@@ -1,9 +1,27 @@
+import { useState } from "react";
 import { Icon } from "../App";
+import type { SearchMatch, TreeEntry } from "../ide";
 import { projectName } from "../settings";
 import type { ActivityView } from "./ActivityBar";
-interface Props { view: ActivityView; width: number; recentProjects: string[]; currentProject?: string; onOpenProject: () => void; onSelectProject: (path: string) => void; }
-export function SidePanel({ view, width, recentProjects, currentProject, onOpenProject, onSelectProject }: Props) {
-  const title = { explorer: "Explorer", search: "Search", source: "Source control", agent: "Agent history" }[view];
-  return <aside className="side-panel" aria-label={title} style={{ width }}><p className="panel-title">{title}</p>{view === "explorer" ? <><button className="open-button" onClick={onOpenProject}><Icon name="folder" /> Open project</button><div className="section-label">Recent</div>{recentProjects.length === 0 ? <p className="empty-copy">Your recent projects will appear here.</p> : <ul className="recent-list">{recentProjects.map((path) => <li key={path}><button className={path === currentProject ? "current" : ""} title={path} onClick={() => onSelectProject(path)}><Icon name="folder" /><span><strong>{projectName(path)}</strong><small>{path}</small></span></button></li>)}</ul>}</> : <EmptyPanel view={view} />}</aside>;
+
+interface Props { view: ActivityView; width: number; tree: TreeEntry[]; recentProjects: string[]; currentProject?: string; searchResults: SearchMatch[]; onSearch: (query: string) => void; onReplace: (query: string, replacement: string) => void; onOpenProject: () => void; onSelectProject: (path: string) => void; onOpenFile: (path: string, line?: number) => void; onMutate: (kind: "file" | "folder" | "rename" | "delete", selected?: string) => void; }
+
+export function SidePanel(props: Props) {
+  const [selected, setSelected] = useState<string>();
+  const [query, setQuery] = useState("");
+  const [replacement, setReplacement] = useState("");
+  const title = { explorer: "Explorer", search: "Search", source: "Source control", agent: "Agent history" }[props.view];
+  return <aside className="side-panel" aria-label={title} style={{ width: props.width }}><p className="panel-title">{title}</p>
+    {props.view === "explorer" && <>{props.currentProject ? <><div className="explorer-toolbar"><strong title={props.currentProject}>{projectName(props.currentProject)}</strong><span><button title="New file" onClick={() => props.onMutate("file")}>＋F</button><button title="New folder" onClick={() => props.onMutate("folder")}>＋D</button><button title="Rename selected" disabled={!selected} onClick={() => props.onMutate("rename", selected)}>✎</button><button title="Delete selected" disabled={!selected} onClick={() => props.onMutate("delete", selected)}>⌫</button></span></div><div className="file-tree" role="tree"><Tree entries={props.tree} selected={selected} onSelect={setSelected} onOpen={props.onOpenFile} /></div></> : <><button className="open-button" onClick={props.onOpenProject}><Icon name="folder" /> Open project</button><div className="section-label">Recent</div>{props.recentProjects.length === 0 ? <p className="empty-copy">Your recent projects will appear here.</p> : <ul className="recent-list">{props.recentProjects.map((path) => <li key={path}><button title={path} onClick={() => props.onSelectProject(path)}><Icon name="folder" /><span><strong>{projectName(path)}</strong><small>{path}</small></span></button></li>)}</ul>}</>}</>}
+    {props.view === "search" && <div className="search-panel"><form onSubmit={(event) => { event.preventDefault(); void props.onSearch(query); }}><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search files" aria-label="Search files" /><button aria-label="Run search"><Icon name="search" /></button></form><div className="replace-row"><input value={replacement} onChange={(event) => setReplacement(event.target.value)} placeholder="Replace with" aria-label="Replace with" /><button disabled={!query} onClick={() => props.onReplace(query, replacement)}>Replace all</button></div><p className="result-count">{props.searchResults.length} results</p><ul>{props.searchResults.map((match) => <li key={`${match.path}:${match.line}`}><button onClick={() => props.onOpenFile(match.path, match.line)}><strong>{match.path}:{match.line}</strong><span>{match.preview}</span></button></li>)}</ul></div>}
+    {props.view === "source" && <EmptyPanel copy="Git integration arrives with the local system engine in Phase 3." />}
+    {props.view === "agent" && <EmptyPanel copy="Agent sessions arrive after secure tools and repository intelligence." />}
+  </aside>;
 }
-function EmptyPanel({ view }: { view: Exclude<ActivityView, "explorer"> }) { const copy = { search: "Repository search arrives with the IDE core in Phase 2.", source: "Git integration arrives with the local system engine in Phase 3.", agent: "Agent sessions arrive after secure tools and repository intelligence." }[view]; return <div className="empty-panel"><p>{copy}</p><span>Planned</span></div>; }
+
+function Tree({ entries, selected, onSelect, onOpen }: { entries: TreeEntry[]; selected?: string; onSelect: (path: string) => void; onOpen: (path: string) => void }) {
+  return <ul>{entries.map((entry) => <li key={entry.path}>{entry.isDirectory ? <details open><summary className={selected === entry.path ? "selected" : ""} onClick={() => onSelect(entry.path)}><span>⌄</span> 📁 {entry.name}</summary><Tree entries={entry.children} selected={selected} onSelect={onSelect} onOpen={onOpen} /></details> : <button className={selected === entry.path ? "selected" : ""} onClick={() => { onSelect(entry.path); onOpen(entry.path); }} title={entry.path}><span className="file-glyph">{fileGlyph(entry.name)}</span>{entry.name}</button>}</li>)}</ul>;
+}
+
+const fileGlyph = (name: string) => ({ ts: "TS", tsx: "TS", js: "JS", jsx: "JS", rs: "RS", py: "PY", java: "JV", json: "{}", md: "MD", css: "#" } as Record<string, string>)[name.split(".").at(-1)?.toLowerCase() ?? ""] ?? "·";
+function EmptyPanel({ copy }: { copy: string }) { return <div className="empty-panel"><p>{copy}</p><span>Planned</span></div>; }

@@ -6,6 +6,8 @@ pub const fn product_name() -> &'static str {
     "Helel"
 }
 
+pub mod workspace;
+
 #[cfg(test)]
 mod tests {
     use super::product_name;
