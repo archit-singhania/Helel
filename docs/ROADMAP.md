@@ -15,3 +15,5 @@
 | 10 | Optimization, safety, packaging, v0.1 | Complete developer preview |
 
 Each phase must have a scoped execution plan and pass `python3 scripts/verify.py` before completion.
+
+Post-v0.1 hardening and the readiness gate for full manual testing are tracked in [the pre-manual-testing action plan](product/PRE_MANUAL_TESTING_PLAN.md).
