@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "helel.model.checkpoint.v1",
+  "type": "object",
+  "required": ["version", "step", "loss", "model_config", "training_config", "files"],
+  "properties": {
+    "version": { "const": 1 },
+    "step": { "type": "integer", "minimum": 0 },
+    "loss": { "type": "number" },
+    "model_config": { "type": "object" },
+    "training_config": { "type": "object" },
+    "files": { "type": "object", "minProperties": 1, "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+  }
+}

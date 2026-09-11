@@ -7,6 +7,10 @@ license = "Apache-2.0"
 
 [project.scripts]
 helel-data = "helel_ml.pipeline:main"
+helel-smoke-train = "helel_ml.smoke:main"
+
+[project.optional-dependencies]
+training = ["mlx>=0.31,<0.32"]
 
 [tool.ruff]
 line-length = 100

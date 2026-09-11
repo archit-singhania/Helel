@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "helel.model.config.v1",
+  "type": "object",
+  "required": ["version", "vocabulary_size", "context_length", "dimensions", "layers", "heads", "feed_forward_dimensions", "rope_theta", "rms_norm_epsilon"],
+  "properties": {
+    "version": { "const": 1 },
+    "vocabulary_size": { "type": "integer", "minimum": 262 },
+    "context_length": { "type": "integer", "minimum": 2 },
+    "dimensions": { "type": "integer", "minimum": 1 },
+    "layers": { "type": "integer", "minimum": 1 },
+    "heads": { "type": "integer", "minimum": 1 },
+    "feed_forward_dimensions": { "type": "integer", "minimum": 1 },
+    "rope_theta": { "type": "number", "exclusiveMinimum": 0 },
+    "rms_norm_epsilon": { "type": "number", "exclusiveMinimum": 0 }
+  },
+  "additionalProperties": false
+}

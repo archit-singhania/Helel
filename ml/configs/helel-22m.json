@@ -1,0 +1,11 @@
+{
+  "context_length": 1024,
+  "dimensions": 384,
+  "feed_forward_dimensions": 1024,
+  "heads": 6,
+  "layers": 12,
+  "rms_norm_epsilon": 0.00001,
+  "rope_theta": 10000.0,
+  "version": 1,
+  "vocabulary_size": 4096
+}
