@@ -1,6 +1,6 @@
 # Helel
 
-Helel is an offline-first autonomous software engineering environment. The repository now contains the Phase 7 model validation foundation: a Tauri IDE, secure local agent tools, reproducible data/tokenizer pipelines, and a locally trainable 22.8M-parameter decoder-only Transformer.
+Helel v0.1 is an offline-first local software engineering environment. It combines a native Tauri IDE, secure and auditable tools, repository intelligence, deterministic agent sessions, reproducible model tooling, and a constrained local inference protocol.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ Run the browser frontend with `pnpm dev`, or the native desktop application with
 
 ## Project status
 
-Phases 0 through 7 are complete. The Helel-46M product model begins in Phase 8. See [the roadmap](docs/ROADMAP.md) and [the Phase 7 audit](docs/audits/phase-7.md).
+The v0.1 engineering scope through Phase 10 is implemented. Helel-46M training remains gated on an approved production corpus and compute run; no useful weights are bundled. See [the roadmap](docs/ROADMAP.md), [Phase 8](docs/audits/phase-8.md), [Phase 9](docs/audits/phase-9.md), and [Phase 10](docs/audits/phase-10.md).
 
 ## Cost and privacy
 

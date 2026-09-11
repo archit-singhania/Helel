@@ -1,0 +1,6 @@
+{
+  "fixture_dataset_seconds": 2.0,
+  "fixture_tokenizer_seconds": 2.0,
+  "maximum_frontend_bytes": 20000000,
+  "maximum_debug_binary_bytes": 100000000
+}

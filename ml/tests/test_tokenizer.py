@@ -14,6 +14,8 @@ class TokenizerTest(unittest.TestCase):
         self.assertEqual(first_report, second_report)
         for text in corpus:
             self.assertEqual(first.decode(first.encode(text, bos=True, eos=True)), text)
+        rocket_tokens = first.encode("🚀")
+        self.assertEqual(b"".join(first.token_bytes(token) for token in rocket_tokens).decode(), "🚀")
         self.assertGreater(first_report.bytes_per_token, 1.0)
 
     def test_serialization_preserves_ids_and_merges(self) -> None:

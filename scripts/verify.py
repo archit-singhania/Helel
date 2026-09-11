@@ -38,6 +38,7 @@ def main() -> None:
         ("Frontend build", [str(JS_BIN / "vite"), "build", str(DESKTOP)], None),
         ("Python import and tests", [sys.executable, "-m", "unittest", "discover", "-s", "ml/tests"], python_env),
         ("Contract validation", [sys.executable, "scripts/validate_contracts.py"], None),
+        ("Release and performance checks", [sys.executable, "scripts/release_check.py"], python_env),
     ]
     if not args.skip_tauri_build:
         checks.append(("Tauri development build", [str(JS_BIN / "tauri"), "build", "--debug", "--no-bundle"], None))

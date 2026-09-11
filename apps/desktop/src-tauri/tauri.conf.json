@@ -11,7 +11,12 @@
   },
   "app": {
     "windows": [{ "title": "Helel", "width": 1100, "height": 720, "minWidth": 800, "minHeight": 560 }],
-    "security": { "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:" }
+    "security": { "csp": "default-src 'self'; connect-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: data:; object-src 'none'; base-uri 'none'; frame-src 'none'" }
   },
-  "bundle": { "active": false }
+  "bundle": {
+    "active": true,
+    "category": "DeveloperTool",
+    "copyright": "Copyright 2026 Helel contributors",
+    "shortDescription": "Offline-first local software engineering environment"
+  }
 }

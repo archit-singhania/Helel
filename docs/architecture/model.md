@@ -17,3 +17,9 @@ The Helel tokenizer is deterministic byte-level BPE with stable merge tie-breaki
 Phase 7 defines Helel-22M as a 22,816,128-parameter decoder-only Transformer with tied token embeddings, 12 layers, 384 hidden dimensions, six attention heads, 1,024 SwiGLU dimensions, RMS normalization, rotary positions, and causal scaled-dot-product attention. Its versioned configuration uses a 4,096-token vocabulary and 1,024-token context.
 
 The MLX training path packs documents, applies deterministic fill-in-the-middle transformations, trains with AdamW, warmup plus cosine decay, and global gradient clipping, and writes safetensors checkpoints with compatibility metadata and SHA-256 corruption checks. Checkpoints restore both model and optimizer state. Evaluation interfaces cover causal loss, perplexity, greedy generation, completion, repair, FIM, memorization, and exact match.
+
+## Product model and local inference
+
+Helel-46M has 45,954,560 parameters, 13 layers, 512 hidden dimensions, eight heads, 1,408 SwiGLU dimensions, an 8,192-token vocabulary, and a 2,048-token context. The training policy defines licensed source-code, test/repair, documentation, and tool-trace mixtures plus staged context and FIM curricula. Release-candidate manifests require all artifacts and completion, repair, FIM, and repository-context evaluations.
+
+Local inference loads version-compatible tokenizer, configuration, and safetensors files, applies strict request/token/resource limits, and streams JSON-line events over standard IO. Four-bit and eight-bit weight-only quantization target linear layers; tied embeddings remain full precision. No network transport exists. Useful product weights are not bundled until an approved corpus is trained and evaluated.

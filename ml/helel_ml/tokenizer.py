@@ -69,15 +69,18 @@ class ByteBPETokenizer:
 
     def decode(self, tokens: Iterable[int]) -> str:
         output = bytearray()
-        offset = len(SPECIAL_TOKENS)
         for token in tokens:
-            if token < offset:
-                continue
-            piece = self._pieces.get(token - offset)
-            if piece is None:
-                raise ValueError(f"unknown token id: {token}")
-            output.extend(piece)
+            output.extend(self.token_bytes(token))
         return output.decode("utf-8")
+
+    def token_bytes(self, token: int) -> bytes:
+        offset = len(SPECIAL_TOKENS)
+        if token < offset:
+            return b""
+        piece = self._pieces.get(token - offset)
+        if piece is None:
+            raise ValueError(f"unknown token id: {token}")
+        return piece
 
     def save(self, path: Path) -> None:
         payload = {"version": 1, "kind": "byte_bpe", "special_tokens": SPECIAL_TOKENS, "merges": self.merges, "vocabulary_size": self.vocabulary_size}

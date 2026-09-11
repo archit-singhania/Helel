@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "helel.model.agent-proposal.v1",
+  "type": "object",
+  "required": ["rationale", "tool", "arguments"],
+  "properties": {
+    "rationale": { "type": "string" },
+    "tool": { "enum": ["searchCode", "readFile", "inspectGit", "runCommand", "applyPatch", "complete"] },
+    "arguments": { "type": "object" }
+  },
+  "additionalProperties": false
+}

@@ -10,8 +10,8 @@
 | 5 | Agent state machine and deterministic tools | Complete |
 | 6 | Dataset and tokenizer pipeline | Complete |
 | 7 | Helel-22M pipeline validation model | Complete |
-| 8 | Helel-46M product model | Next |
-| 9 | Model and agent integration | Planned |
-| 10 | Optimization, safety, packaging, v0.1 | Planned |
+| 8 | Helel-46M product model | Infrastructure complete; weights pending |
+| 9 | Model and agent integration | Complete; weights pending |
+| 10 | Optimization, safety, packaging, v0.1 | Complete developer preview |
 
 Each phase must have a scoped execution plan and pass `python3 scripts/verify.py` before completion.

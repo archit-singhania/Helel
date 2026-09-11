@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "helel.model.generation.v1",
+  "type": "object",
+  "required": ["request_id", "prompt"],
+  "properties": {
+    "request_id": { "type": "string", "minLength": 1 },
+    "prompt": { "type": "string", "minLength": 1, "maxLength": 2097152 },
+    "maximum_new_tokens": { "type": "integer", "minimum": 1, "maximum": 512 },
+    "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
+    "stop": { "type": "array", "maxItems": 8, "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

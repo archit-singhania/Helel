@@ -11,3 +11,5 @@ It depends on core tool interfaces, repository context, model runtime interfaces
 Phase 5 implements planning, gathering, executing, approval, verification, completion, failure, and cancellation states. Each transition is ordered by a step number and records a typed observation. Tool requests are versioned and limited to code search, file reads, Git inspection, direct process execution, and checked patches. Mutating tools pause at an approval boundary. Session ledgers persist in `.helel/agents.json` and reload with the workspace.
 
 The current planner is scripted by design. A future local model may propose plans and typed requests, but it must use this state machine and cannot receive direct filesystem or process authority.
+
+Phase 9 adds a local-model planner bridge. It serializes a bounded repository snapshot inside explicit untrusted-data delimiters, requires exactly one JSON proposal, validates the selected tool and its complete argument shape, and hands accepted proposals to the existing deterministic tool and approval policy. Generated text alone never executes an action.
