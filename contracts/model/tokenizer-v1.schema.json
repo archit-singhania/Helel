@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "helel.model.tokenizer.v1",
+  "type": "object",
+  "required": ["version", "kind", "special_tokens", "merges", "vocabulary_size"],
+  "properties": {
+    "version": { "const": 1 },
+    "kind": { "const": "byte_bpe" },
+    "special_tokens": { "type": "array", "items": { "type": "string" }, "minItems": 6 },
+    "merges": { "type": "array", "items": { "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 2, "maxItems": 2 } },
+    "vocabulary_size": { "type": "integer", "minimum": 262 }
+  },
+  "additionalProperties": false
+}

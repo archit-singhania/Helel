@@ -8,8 +8,8 @@
 | 3 | Filesystem, processes, Git, patches, security | Complete |
 | 4 | Parsing, indexing, symbols, context retrieval | Complete |
 | 5 | Agent state machine and deterministic tools | Complete |
-| 6 | Dataset and tokenizer pipeline | Next |
-| 7 | Helel-22M pipeline validation model | Planned |
+| 6 | Dataset and tokenizer pipeline | Complete |
+| 7 | Helel-22M pipeline validation model | Next |
 | 8 | Helel-46M product model | Planned |
 | 9 | Model and agent integration | Planned |
 | 10 | Optimization, safety, packaging, v0.1 | Planned |

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "helel.model.dataset-manifest.v1",
+  "type": "object",
+  "required": ["pipeline_version", "registry_sha256", "sources", "report", "checksums"],
+  "properties": {
+    "pipeline_version": { "const": 1 },
+    "registry_sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "sources": { "type": "array" },
+    "report": { "type": "object" },
+    "checksums": { "type": "object", "additionalProperties": { "type": "string", "pattern": "^[0-9a-f]{64}$" } }
+  }
+}

@@ -1,6 +1,6 @@
 # Helel
 
-Helel is an offline-first autonomous software engineering environment. The repository now contains the Phase 5 deterministic agent foundation: a Tauri IDE with secure local tools, persisted repository intelligence, ranked context retrieval, and auditable agent sessions.
+Helel is an offline-first autonomous software engineering environment. The repository now contains the Phase 6 data foundation: a Tauri IDE with secure local tools, repository intelligence, deterministic agents, and a reproducible licensed dataset and tokenizer pipeline.
 
 ## Requirements
 
@@ -20,7 +20,7 @@ Run the browser frontend with `pnpm dev`, or the native desktop application with
 
 ## Project status
 
-Phases 0 through 5 are complete. The dataset and tokenizer pipeline begins in Phase 6. See [the roadmap](docs/ROADMAP.md), [the Phase 4 audit](docs/audits/phase-4.md), and [the Phase 5 audit](docs/audits/phase-5.md).
+Phases 0 through 6 are complete. Helel-22M pipeline validation begins in Phase 7. See [the roadmap](docs/ROADMAP.md) and [the Phase 6 audit](docs/audits/phase-6.md).
 
 ## Cost and privacy
 

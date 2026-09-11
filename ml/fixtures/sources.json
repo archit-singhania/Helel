@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "source_id": "helel-phase6-fixture",
+      "path": "corpus",
+      "license": "Apache-2.0",
+      "origin": "repository fixture authored for Helel",
+      "revision": "1",
+      "include": ["**/*.py", "**/*.rs", "**/*.md"]
+    }
+  ]
+}
