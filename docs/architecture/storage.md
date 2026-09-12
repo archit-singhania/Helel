@@ -6,4 +6,4 @@ Storage owns local SQLite schemas, migrations, transactions, and repositories fo
 
 It depends on SQLite and versioned domain records. Core and agent repositories may depend on storage abstractions; UI and model training may not access tables directly. Migration, round-trip, concurrency, and recovery tests will use temporary databases.
 
-Phases 4 and 5 establish versioned, atomic JSON repositories under `.helel` for the code index and agent ledger. This keeps the initial persistence layer dependency-free and portable. The planned SQLite adapter remains the target when query volume, transactional migrations, and concurrent writers require it; callers depend on domain APIs rather than the on-disk representation.
+Agent sessions remain a versioned atomic JSON ledger under `.helel`. Compiler-grade repository data now uses a bundled SQLite database with indexed symbol/reference names and FTS5 content. Security events use append-only JSON lines with a verified hash chain, MCP server definitions use an atomic local registry, and task rollback data records exact pre-mutation bytes for declared paths.

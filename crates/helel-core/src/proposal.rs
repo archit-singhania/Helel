@@ -2,79 +2,116 @@
 
 use crate::agent::ToolRequest;
 use serde::Deserialize;
-use std::collections::HashSet;
+use serde_json::Value;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct Proposal {
-    pub version: u32,
-    pub session_id: String,
-    pub nonce: String,
-    pub tool: ProposalTool,
+#[serde(deny_unknown_fields)]
+struct Proposal {
+    rationale: String,
+    tool: String,
+    arguments: HashMap<String, Value>,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(tag = "kind", rename_all = "camelCase", deny_unknown_fields)]
-pub enum ProposalTool {
-    SearchCode { query: String },
-    ReadFile { path: String },
-    InspectGit,
-    RunCommand { program: String, args: Vec<String> },
-    ApplyPatch { patch: String, reverse: bool },
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ProposalAction {
+    Tool(ToolRequest),
+    Complete(String),
 }
 
 #[derive(Debug, Default)]
 pub struct ProposalGuard {
     used_nonces: HashSet<String>,
 }
+
+fn exact(arguments: &HashMap<String, Value>, keys: &[&str]) -> bool {
+    arguments.len() == keys.len() && keys.iter().all(|key| arguments.contains_key(*key))
+}
+fn string(arguments: &HashMap<String, Value>, key: &str) -> Result<String, String> {
+    let value = arguments
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| format!("{key} must be a string"))?;
+    if value.is_empty() || value.len() > 65_536 {
+        return Err(format!("{key} has invalid size"));
+    }
+    Ok(value.into())
+}
+
 impl ProposalGuard {
-    /// Converts untrusted JSON into a bounded typed request.
+    /// Converts untrusted model JSON into a bounded typed action.
     ///
     /// # Errors
-    /// Returns a description for malformed, stale, replayed, or oversized input.
-    pub fn decode(&mut self, json: &str, expected_session: &str) -> Result<ToolRequest, String> {
+    /// Returns a description for malformed, replayed, unknown, or oversized input.
+    pub fn decode(
+        &mut self,
+        json: &str,
+        session: &str,
+        nonce: &str,
+    ) -> Result<ProposalAction, String> {
         if json.len() > 262_144 {
             return Err("proposal is oversized".into());
         }
-        let p: Proposal =
-            serde_json::from_str(json).map_err(|e| format!("invalid proposal: {e}"))?;
-        if p.version != 1 || p.session_id != expected_session {
-            return Err("stale or incompatible proposal".into());
+        let replay_key = format!("{session}:{nonce}");
+        if session.is_empty() || nonce.len() < 8 || !self.used_nonces.insert(replay_key) {
+            return Err("invalid or replayed proposal nonce".into());
         }
-        if p.nonce.len() < 8 || !self.used_nonces.insert(p.nonce) {
-            return Err("invalid or replayed nonce".into());
+        let proposal: Proposal =
+            serde_json::from_str(json).map_err(|error| format!("invalid proposal: {error}"))?;
+        if proposal.rationale.len() > 16_384 {
+            return Err("proposal rationale is oversized".into());
         }
-        let bounded = |value: &str| {
-            if value.is_empty() || value.len() > 65_536 {
-                Err("invalid argument size".to_string())
-            } else {
-                Ok(())
+        Ok(match proposal.tool.as_str() {
+            "searchCode" if exact(&proposal.arguments, &["query"]) => {
+                ProposalAction::Tool(ToolRequest::SearchCode {
+                    query: string(&proposal.arguments, "query")?,
+                    limit: 100,
+                })
             }
-        };
-        Ok(match p.tool {
-            ProposalTool::SearchCode { query } => {
-                bounded(&query)?;
-                ToolRequest::SearchCode { query, limit: 100 }
+            "readFile" if exact(&proposal.arguments, &["path"]) => {
+                ProposalAction::Tool(ToolRequest::ReadFile {
+                    path: string(&proposal.arguments, "path")?,
+                })
             }
-            ProposalTool::ReadFile { path } => {
-                bounded(&path)?;
-                ToolRequest::ReadFile { path }
+            "inspectGit" if exact(&proposal.arguments, &[]) => {
+                ProposalAction::Tool(ToolRequest::InspectGit)
             }
-            ProposalTool::InspectGit => ToolRequest::InspectGit,
-            ProposalTool::RunCommand { program, args } => {
-                bounded(&program)?;
-                if args.len() > 128 || args.iter().any(|a| a.len() > 4096) {
-                    return Err("invalid command arguments".into());
+            "runCommand" if exact(&proposal.arguments, &["command", "args"]) => {
+                let command = string(&proposal.arguments, "command")?;
+                let values = proposal
+                    .arguments
+                    .get("args")
+                    .and_then(Value::as_array)
+                    .ok_or("args must be an array")?;
+                if values.len() > 128 {
+                    return Err("too many command arguments".into());
                 }
-                ToolRequest::RunCommand {
-                    command: program,
-                    args,
-                }
+                let args = values
+                    .iter()
+                    .map(|value| {
+                        value
+                            .as_str()
+                            .filter(|text| text.len() <= 4096)
+                            .map(str::to_owned)
+                            .ok_or_else(|| "command arguments must be bounded strings".to_owned())
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                ProposalAction::Tool(ToolRequest::RunCommand { command, args })
             }
-            ProposalTool::ApplyPatch { patch, reverse } => {
-                bounded(&patch)?;
-                ToolRequest::ApplyPatch { patch, reverse }
+            "applyPatch" if exact(&proposal.arguments, &["patch", "reverse"]) => {
+                ProposalAction::Tool(ToolRequest::ApplyPatch {
+                    patch: string(&proposal.arguments, "patch")?,
+                    reverse: proposal
+                        .arguments
+                        .get("reverse")
+                        .and_then(Value::as_bool)
+                        .ok_or("reverse must be a boolean")?,
+                })
             }
+            "complete" if exact(&proposal.arguments, &[]) => {
+                ProposalAction::Complete(proposal.rationale)
+            }
+            _ => return Err("proposal tool or argument shape is invalid".into()),
         })
     }
 }
@@ -83,12 +120,22 @@ impl ProposalGuard {
 mod tests {
     use super::*;
     #[test]
-    fn rejects_unknown_replay_and_stale() {
-        let mut g = ProposalGuard::default();
-        let p = r#"{"version":1,"sessionId":"s","nonce":"12345678","tool":{"kind":"inspectGit"}}"#;
-        assert!(g.decode(p, "s").is_ok());
-        assert!(g.decode(p, "s").is_err());
-        let bad = r#"{"version":1,"sessionId":"s","nonce":"abcdefgh","extra":1,"tool":{"kind":"inspectGit"}}"#;
-        assert!(g.decode(bad, "s").is_err());
+    fn rejects_unknown_replay_and_bad_shapes() {
+        let mut guard = ProposalGuard::default();
+        let valid = r#"{"rationale":"inspect","tool":"inspectGit","arguments":{}}"#;
+        assert!(matches!(
+            guard.decode(valid, "1", "12345678"),
+            Ok(ProposalAction::Tool(ToolRequest::InspectGit))
+        ));
+        assert!(guard.decode(valid, "1", "12345678").is_err());
+        assert!(
+            guard
+                .decode(
+                    r#"{"rationale":"x","tool":"inspectGit","arguments":{},"extra":1}"#,
+                    "1",
+                    "abcdefgh"
+                )
+                .is_err()
+        );
     }
 }

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "name": "angular-spring",
+  "detection": [
+    "frontend/angular.json",
+    "backend/pom.xml|backend/build.gradle"
+  ],
+  "conventions": [
+    "follow existing project structure",
+    "change the smallest coherent surface",
+    "add or update meaningful tests"
+  ],
+  "fileBoundaries": [
+    "frontend/**",
+    "backend/**"
+  ],
+  "validation": [
+    {
+      "program": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "requiresApproval": true
+    },
+    {
+      "program": "mvn",
+      "args": [
+        "--offline",
+        "test"
+      ],
+      "requiresApproval": true
+    }
+  ],
+  "commonFailures": [
+    "DTO drift",
+    "proxy mismatch",
+    "observable lifecycle"
+  ]
+}

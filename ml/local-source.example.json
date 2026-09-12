@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "source_id": "helel-self-hosting",
+      "path": "..",
+      "license": "Apache-2.0",
+      "origin": "local Helel repository",
+      "revision": "replace-with-reviewed-git-commit",
+      "include": ["crates/**/*.rs", "apps/desktop/src/**/*.ts", "apps/desktop/src/**/*.tsx", "ml/helel_ml/**/*.py", "docs/**/*.md"]
+    }
+  ]
+}

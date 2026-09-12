@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "name": "angular",
+  "detection": [
+    "package.json",
+    "angular.json"
+  ],
+  "conventions": [
+    "follow existing project structure",
+    "change the smallest coherent surface",
+    "add or update meaningful tests"
+  ],
+  "fileBoundaries": [
+    "src/**",
+    "angular.json",
+    "package.json"
+  ],
+  "validation": [
+    {
+      "program": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "requiresApproval": true
+    },
+    {
+      "program": "npm",
+      "args": [
+        "run",
+        "test"
+      ],
+      "requiresApproval": true
+    },
+    {
+      "program": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "requiresApproval": true
+    }
+  ],
+  "commonFailures": [
+    "standalone/module mismatch",
+    "template type errors",
+    "missing providers"
+  ]
+}

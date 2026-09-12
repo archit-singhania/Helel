@@ -2,7 +2,7 @@ export type Risk = "safe" | "modify" | "dangerous";
 export interface ProcessStarted { id: number; risk: Risk; }
 export interface ProcessOutput { id: number; stream: "stdout" | "stderr"; line: string; }
 export interface ProcessExit { id: number; exitCode: number | null; }
-export interface GitSummary { branch: string; changes: string[]; diff: string; }
+export interface GitSummary { branch: string; changes: string[]; diff: string; stagedDiff: string; }
 export interface AuditEntry { timestampMs: number; action: string; risk: Risk; approved: boolean; success: boolean; }
 
 export function parseCommand(input: string): { command: string; args: string[] } | undefined {

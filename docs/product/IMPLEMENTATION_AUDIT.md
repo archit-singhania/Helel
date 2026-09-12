@@ -4,7 +4,7 @@ Audit date: 2026-09-12
 
 ## Current outcome
 
-Helel is a verified offline developer preview with an IDE, trusted local tools, model-training infrastructure, and the first pre-manual hardening foundations. It is not yet a fully autonomous Codex/Claude-class app: no useful trained weights are installed, the desktop still drives a scripted agent, and several OS integrations remain incomplete.
+Helel is a verified offline developer preview with a model-driven bounded agent loop, supervised local inference, native watching and PTY support, transactional recovery, Tree-sitter/SQLite indexing, and local stdio MCP lifecycle support. It is not yet a Codex/Claude-quality agent because no useful trained Helel weights are installed and clean-machine/cross-platform acceptance has not run.
 
 ## Sixteen-area status
 
@@ -14,18 +14,18 @@ Helel is a verified offline developer preview with an IDE, trusted local tools, 
 | 2 | Tauri/React desktop shell | Done | Native desktop build and application layout. |
 | 3 | Editor and IDE core | Done | Monaco, tabs, file tree, search and replace. |
 | 4 | Secure filesystem | Done | Canonical workspace boundaries and traversal tests. |
-| 5 | Processes, Git, patches | Partial | Shell-free streaming/cancel and patch checks work; PTY, stage/commit UI, and task diff remain. |
-| 6 | Repository intelligence | Partial | Persistent lexical symbols/context work; Tree-sitter/LSP and SQLite/FTS5 remain. |
-| 7 | Agent sessions | Partial | Durable sessions and typed tools work; desktop still uses the scripted sequence. |
+| 5 | Processes, Git, patches | Substantially done | PTY input/output/resize/cancel, transactional patches, rollback, stage/commit APIs, staged/unstaged diff. Stage/commit UI remains. |
+| 6 | Repository intelligence | Substantially done | Tree-sitter for four languages and SQLite/FTS5 persistence work. Incremental semantic updates and LSP diagnostics remain. |
+| 7 | Agent sessions | Substantially done | Model-driven bounded loop, typed tools, persistence, retry, pause/resume/cancel/completion work. Quality depends on weights. |
 | 8 | Dataset pipeline | Done | Licensed-source registry, normalization, redaction, deduplication, stable splits. A production corpus still requires owner approval. |
 | 9 | Tokenizer | Done | Deterministic byte BPE and versioned artifacts. |
 | 10 | Helel-22M model pipeline | Infrastructure done | Architecture, training/checkpoint/evaluation code; useful weights require local training. |
 | 11 | Helel-46M product model | Infrastructure done | Architecture, curricula, quantization policy; useful weights require local training and evaluation. |
-| 12 | Local inference protocol | Partial | Bounded JSONL Python runtime exists; packaging, lifecycle supervision, and a real checkpoint remain. |
-| 13 | Agent hardening | Partial | Budget state and strict proposal bridge exist in Rust; full planner/executor loop and desktop wiring remain. |
-| 14 | Safety and recovery | Partial | Task-scoped rollback and durable hash-chained ledger primitives exist; desktop audit migration, dirty-buffer coordination, and failure injection remain. |
-| 15 | HelelBench and stack policy | Partial | 30 deterministic infrastructure cases, report format, stack detection and commands work; real edit/repair/scaffold repositories and agent-driven execution remain. |
-| 16 | MCP, product UX, releases | Early | Local MCP JSON-RPC validation boundary exists; stdio server lifecycle/tool discovery, unified agent UI, native watching, PTY, framework skills, cross-platform validation, and signing remain. |
+| 12 | Local inference protocol | Substantially done locally | Artifact validation, health check, supervised JSONL streaming, local launcher and smoke checkpoint work. Tauri production resource bundling remains. |
+| 13 | Agent hardening | Substantially done | Trusted proposal bridge and desktop planner/executor loop are wired with budgets and approval. Adversarial end-to-end expansion remains. |
+| 14 | Safety and recovery | Substantially done | Desktop audit persistence, native dirty-buffer notices, task-scoped checkpoints, atomic apply and rollback work. Broader failure injection remains. |
+| 15 | HelelBench and stack policy | Partial | 30 disposable source edit/repair/test/refactor/scaffold cases pass; seven framework recipes and stack commands exist. Agent-driven build validators remain. |
+| 16 | MCP, product UX, releases | Partial | MCP stdio registry, initialization, discovery and approved calls work; unified task display, native watching, PTY and controls work. MCP configuration UI, model packaging, cross-platform testing and signing remain. |
 
 ## External prerequisites
 

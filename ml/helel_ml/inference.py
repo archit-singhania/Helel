@@ -88,6 +88,9 @@ def serve(runtime: LocalInferenceRuntime) -> None:
         try:
             payload = json.loads(line)
             request_id = str(payload.get("request_id", "unknown"))
+            if payload.get("kind") == "health":
+                print(json.dumps(asdict(GenerationEvent(request_id, "healthy")), sort_keys=True), flush=True)
+                continue
             request = GenerationRequest(request_id=request_id, prompt=payload["prompt"], maximum_new_tokens=int(payload.get("maximum_new_tokens", 128)), temperature=float(payload.get("temperature", 0)), stop=tuple(payload.get("stop", ())))
             for event in runtime.stream(request):
                 print(json.dumps(asdict(event), sort_keys=True), flush=True)

@@ -12,8 +12,8 @@ The Phase 2 workspace service accepts normalized relative paths only. It canonic
 
 ## Local system service
 
-The Phase 3 system service launches programs directly, without a command shell, inside the active workspace. It streams standard output and error as typed desktop events, tracks running children by ID, supports cancellation, and records command decisions in an in-memory audit log. Git status and diffs use fixed argument lists. Structured patches must pass `git apply --check` before they can be applied or reversed.
+The system service launches programs directly inside the active workspace. Interactive desktop processes use a native PTY with bounded output, input, resize, status, and cancellation. Command and patch decisions are appended to a durable hash-chained audit ledger. Git status, staged and unstaged diffs, explicit staging, and commits use fixed argument lists. Structured patches pass `git apply --check`, snapshot only their declared target paths, apply atomically, and retain a rollback checkpoint that preserves unrelated changes.
 
 ## Repository intelligence
 
-The Phase 4 indexer detects languages, manifests, and common frameworks; extracts deterministic source symbols and identifier references; and stores a versioned index in `.helel/index.json`. Full scans exclude dependencies, build output, VCS data, symlinks, binary files, and files above 2 MiB. Editor saves update only the affected file record. Definition, reference, workspace-symbol, and ranked context queries have explicit result limits.
+The repository service retains the bounded lexical context index for planner retrieval and builds `.helel/index.sqlite` from Tree-sitter syntax trees for Rust, TypeScript/TSX, Python, and Java. SQLite stores source files, exact definitions, references, and an FTS5 context table. Full scans exclude dependencies, build output, VCS data, symlinks, binary files, and files above 2 MiB. Native workspace events replace periodic tree polling; the UI reports conflicts when an externally changed file has an unsaved editor buffer.

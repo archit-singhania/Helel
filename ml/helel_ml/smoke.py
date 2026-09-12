@@ -20,6 +20,8 @@ def main() -> None:
     config = TrainingConfig(batch_size=2, sequence_length=31, maximum_steps=args.steps, warmup_steps=1, fim_rate=0.5)
     sequences = packed_sequences(texts, tokenizer, config.sequence_length, config.seed, config.fim_rate)
     history = train(model, config, sequences, args.output)
+    model.save(args.output / "config.json")
+    tokenizer.save(args.output / "tokenizer.json")
     verify_checkpoint(args.output, model)
     import mlx.optimizers as optim
     from .model import create_model

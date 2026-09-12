@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Risk {
     Safe,
@@ -30,6 +30,7 @@ pub struct GitSummary {
     pub branch: String,
     pub changes: Vec<String>,
     pub diff: String,
+    pub staged_diff: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,6 +110,84 @@ pub fn restore_checkpoint(root: &Path, checkpoint: &TaskCheckpoint) -> io::Resul
         }
     }
     Ok(())
+}
+
+/// Returns the workspace-relative files declared by a unified Git patch.
+///
+/// # Errors
+/// Returns an error when the patch declares no paths or an unsafe path.
+pub fn patch_paths(patch: &str) -> io::Result<Vec<PathBuf>> {
+    let mut paths = Vec::new();
+    for line in patch.lines().filter(|line| line.starts_with("+++ ")) {
+        let raw = line
+            .trim_start_matches("+++ ")
+            .split('\t')
+            .next()
+            .unwrap_or_default();
+        if raw == "/dev/null" {
+            continue;
+        }
+        let relative = raw.strip_prefix("b/").unwrap_or(raw);
+        let target_path = PathBuf::from(relative);
+        if target_path.is_absolute()
+            || target_path
+                .components()
+                .any(|part| matches!(part, std::path::Component::ParentDir))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "patch path escapes workspace",
+            ));
+        }
+        if !paths.contains(&target_path) {
+            paths.push(target_path);
+        }
+    }
+    if paths.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "patch contains no target paths",
+        ));
+    }
+    Ok(paths)
+}
+
+/// Applies a patch and durably stores the exact task-scoped rollback checkpoint.
+///
+/// # Errors
+/// Returns an error when validation, checkpointing, patching, or persistence fails.
+pub fn apply_transactional_patch(
+    root: &Path,
+    patch: &str,
+    reverse: bool,
+) -> io::Result<TaskCheckpoint> {
+    let paths = patch_paths(patch)?;
+    let checkpoint = create_checkpoint(root, &paths)?;
+    if let Err(error) = apply_patch(root, patch, reverse) {
+        restore_checkpoint(root, &checkpoint)?;
+        return Err(error);
+    }
+    let directory = root.join(".helel");
+    fs::create_dir_all(&directory)?;
+    let temporary = directory.join("checkpoint.json.tmp");
+    fs::write(
+        &temporary,
+        serde_json::to_vec(&checkpoint).map_err(io::Error::other)?,
+    )?;
+    fs::rename(temporary, directory.join("checkpoint.json"))?;
+    Ok(checkpoint)
+}
+
+/// Restores and removes the most recent task checkpoint.
+///
+/// # Errors
+/// Returns an error if the checkpoint is absent, corrupt, or cannot be restored.
+pub fn rollback_last_patch(root: &Path) -> io::Result<()> {
+    let path = root.join(".helel/checkpoint.json");
+    let checkpoint: TaskCheckpoint =
+        serde_json::from_slice(&fs::read(&path)?).map_err(io::Error::other)?;
+    restore_checkpoint(root, &checkpoint)?;
+    fs::remove_file(path)
 }
 
 #[must_use]
@@ -199,11 +278,72 @@ pub fn git_summary(root: &Path) -> io::Result<GitSummary> {
         .to_owned();
     let changes = lines.map(str::to_owned).collect();
     let diff = command_output(root, "git", &["diff", "--", "."])?;
+    let staged_diff = command_output(root, "git", &["diff", "--cached", "--", "."])?;
     Ok(GitSummary {
         branch,
         changes,
         diff: String::from_utf8_lossy(&diff.stdout).into_owned(),
+        staged_diff: String::from_utf8_lossy(&staged_diff.stdout).into_owned(),
     })
+}
+
+/// Stages explicitly selected workspace-relative paths.
+///
+/// # Errors
+/// Returns an error for unsafe paths or a failed Git operation.
+pub fn git_stage(root: &Path, paths: &[String]) -> io::Result<()> {
+    if paths.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "no paths selected",
+        ));
+    }
+    if paths.iter().any(|path| {
+        Path::new(path).is_absolute()
+            || Path::new(path)
+                .components()
+                .any(|part| matches!(part, std::path::Component::ParentDir))
+    }) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "Git path escapes workspace",
+        ));
+    }
+    let mut command = Command::new("git");
+    command.arg("add").arg("--").args(paths).current_dir(root);
+    let output = command.output()?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(io::Error::other(
+            String::from_utf8_lossy(&output.stderr).trim().to_owned(),
+        ))
+    }
+}
+
+/// Creates a local commit from the staged index.
+///
+/// # Errors
+/// Returns an error for an invalid message or failed Git commit.
+pub fn git_commit(root: &Path, message: &str) -> io::Result<String> {
+    let message = message.trim();
+    if message.is_empty() || message.len() > 4096 || message.contains('\0') {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid commit message",
+        ));
+    }
+    let output = Command::new("git")
+        .args(["commit", "-m", message])
+        .current_dir(root)
+        .output()?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    } else {
+        Err(io::Error::other(
+            String::from_utf8_lossy(&output.stderr).trim().to_owned(),
+        ))
+    }
 }
 
 /// Checks and applies or reverses a unified Git patch.
@@ -261,7 +401,7 @@ fn result(command: &str, output: &Output, risk: Risk) -> ProcessResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{Risk, classify, create_checkpoint, restore_checkpoint};
+    use super::{Risk, classify, create_checkpoint, patch_paths, restore_checkpoint};
     use std::{fs, path::PathBuf};
     #[test]
     fn classifies_commands() {
@@ -295,5 +435,13 @@ mod tests {
             fs::read_to_string(dir.path().join("user.txt")).unwrap(),
             "user-after"
         );
+    }
+    #[test]
+    fn patch_paths_reject_escape() {
+        assert_eq!(
+            patch_paths("+++ b/src/lib.rs\n").unwrap(),
+            [PathBuf::from("src/lib.rs")]
+        );
+        assert!(patch_paths("+++ b/../outside\n").is_err());
     }
 }

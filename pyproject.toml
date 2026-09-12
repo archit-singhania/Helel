@@ -10,6 +10,7 @@ helel-data = "helel_ml.pipeline:main"
 helel-smoke-train = "helel_ml.smoke:main"
 helel-product-smoke = "helel_ml.product_smoke:main"
 helel-inference = "helel_ml.inference:main"
+helel-train = "helel_ml.train_cli:main"
 
 [project.optional-dependencies]
 training = ["mlx>=0.31,<0.32"]

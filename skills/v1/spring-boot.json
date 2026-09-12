@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "name": "spring-boot",
+  "detection": [
+    "pom.xml|build.gradle|build.gradle.kts"
+  ],
+  "conventions": [
+    "follow existing project structure",
+    "change the smallest coherent surface",
+    "add or update meaningful tests"
+  ],
+  "fileBoundaries": [
+    "src/main/**",
+    "src/test/**",
+    "pom.xml",
+    "build.gradle*"
+  ],
+  "validation": [
+    {
+      "program": "mvn",
+      "args": [
+        "--offline",
+        "test"
+      ],
+      "requiresApproval": true
+    },
+    {
+      "program": "./gradlew",
+      "args": [
+        "--offline",
+        "test"
+      ],
+      "requiresApproval": true
+    }
+  ],
+  "commonFailures": [
+    "bean cycles",
+    "profile mismatch",
+    "migration drift"
+  ]
+}

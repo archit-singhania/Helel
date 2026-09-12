@@ -1,10 +1,450 @@
 {
-  "version": 1,
+  "version": 2,
   "tasks": [
-    {"id":"edit-01","category":"edit"},{"id":"edit-02","category":"edit"},{"id":"edit-03","category":"edit"},{"id":"edit-04","category":"edit"},{"id":"edit-05","category":"edit"},{"id":"edit-06","category":"edit"},{"id":"edit-07","category":"edit"},{"id":"edit-08","category":"edit"},{"id":"edit-09","category":"edit"},{"id":"edit-10","category":"edit"},
-    {"id":"repair-01","category":"repair"},{"id":"repair-02","category":"repair"},{"id":"repair-03","category":"repair"},{"id":"repair-04","category":"repair"},{"id":"repair-05","category":"repair"},
-    {"id":"test-01","category":"test"},{"id":"test-02","category":"test"},{"id":"test-03","category":"test"},{"id":"test-04","category":"test"},{"id":"test-05","category":"test"},
-    {"id":"refactor-01","category":"refactor"},{"id":"refactor-02","category":"refactor"},{"id":"refactor-03","category":"refactor"},{"id":"refactor-04","category":"refactor"},{"id":"refactor-05","category":"refactor"},
-    {"id":"scaffold-01","category":"scaffold"},{"id":"scaffold-02","category":"scaffold"},{"id":"scaffold-03","category":"scaffold"},{"id":"scaffold-04","category":"scaffold"},{"id":"scaffold-05","category":"scaffold"}
+    {
+      "id": "edit-01",
+      "category": "edit",
+      "stack": "python",
+      "files": {
+        "src/edit_1.py": "# value old_1\n"
+      },
+      "writes": {
+        "src/edit_1.py": "# value new_1\n"
+      },
+      "expect": {
+        "src/edit_1.py": "new_1"
+      }
+    },
+    {
+      "id": "edit-02",
+      "category": "edit",
+      "stack": "rust",
+      "files": {
+        "src/edit_2.rs": "// value old_2\n"
+      },
+      "writes": {
+        "src/edit_2.rs": "// value new_2\n"
+      },
+      "expect": {
+        "src/edit_2.rs": "new_2"
+      }
+    },
+    {
+      "id": "edit-03",
+      "category": "edit",
+      "stack": "typescript",
+      "files": {
+        "src/edit_3.ts": "// value old_3\n"
+      },
+      "writes": {
+        "src/edit_3.ts": "// value new_3\n"
+      },
+      "expect": {
+        "src/edit_3.ts": "new_3"
+      }
+    },
+    {
+      "id": "edit-04",
+      "category": "edit",
+      "stack": "java",
+      "files": {
+        "src/edit_4.java": "// value old_4\n"
+      },
+      "writes": {
+        "src/edit_4.java": "// value new_4\n"
+      },
+      "expect": {
+        "src/edit_4.java": "new_4"
+      }
+    },
+    {
+      "id": "edit-05",
+      "category": "edit",
+      "stack": "python",
+      "files": {
+        "src/edit_5.py": "# value old_5\n"
+      },
+      "writes": {
+        "src/edit_5.py": "# value new_5\n"
+      },
+      "expect": {
+        "src/edit_5.py": "new_5"
+      }
+    },
+    {
+      "id": "edit-06",
+      "category": "edit",
+      "stack": "rust",
+      "files": {
+        "src/edit_6.rs": "// value old_6\n"
+      },
+      "writes": {
+        "src/edit_6.rs": "// value new_6\n"
+      },
+      "expect": {
+        "src/edit_6.rs": "new_6"
+      }
+    },
+    {
+      "id": "edit-07",
+      "category": "edit",
+      "stack": "typescript",
+      "files": {
+        "src/edit_7.ts": "// value old_7\n"
+      },
+      "writes": {
+        "src/edit_7.ts": "// value new_7\n"
+      },
+      "expect": {
+        "src/edit_7.ts": "new_7"
+      }
+    },
+    {
+      "id": "edit-08",
+      "category": "edit",
+      "stack": "java",
+      "files": {
+        "src/edit_8.java": "// value old_8\n"
+      },
+      "writes": {
+        "src/edit_8.java": "// value new_8\n"
+      },
+      "expect": {
+        "src/edit_8.java": "new_8"
+      }
+    },
+    {
+      "id": "edit-09",
+      "category": "edit",
+      "stack": "python",
+      "files": {
+        "src/edit_9.py": "# value old_9\n"
+      },
+      "writes": {
+        "src/edit_9.py": "# value new_9\n"
+      },
+      "expect": {
+        "src/edit_9.py": "new_9"
+      }
+    },
+    {
+      "id": "edit-10",
+      "category": "edit",
+      "stack": "rust",
+      "files": {
+        "src/edit_10.rs": "// value old_10\n"
+      },
+      "writes": {
+        "src/edit_10.rs": "// value new_10\n"
+      },
+      "expect": {
+        "src/edit_10.rs": "new_10"
+      }
+    },
+    {
+      "id": "repair-01",
+      "category": "repair",
+      "stack": "python",
+      "files": {
+        "src/repair_1.py": "broken_1\n"
+      },
+      "writes": {
+        "src/repair_1.py": "fixed_1\n"
+      },
+      "expect": {
+        "src/repair_1.py": "fixed_1"
+      }
+    },
+    {
+      "id": "repair-02",
+      "category": "repair",
+      "stack": "rust",
+      "files": {
+        "src/repair_2.rs": "broken_2\n"
+      },
+      "writes": {
+        "src/repair_2.rs": "fixed_2\n"
+      },
+      "expect": {
+        "src/repair_2.rs": "fixed_2"
+      }
+    },
+    {
+      "id": "repair-03",
+      "category": "repair",
+      "stack": "typescript",
+      "files": {
+        "src/repair_3.ts": "broken_3\n"
+      },
+      "writes": {
+        "src/repair_3.ts": "fixed_3\n"
+      },
+      "expect": {
+        "src/repair_3.ts": "fixed_3"
+      }
+    },
+    {
+      "id": "repair-04",
+      "category": "repair",
+      "stack": "java",
+      "files": {
+        "src/repair_4.java": "broken_4\n"
+      },
+      "writes": {
+        "src/repair_4.java": "fixed_4\n"
+      },
+      "expect": {
+        "src/repair_4.java": "fixed_4"
+      }
+    },
+    {
+      "id": "repair-05",
+      "category": "repair",
+      "stack": "python",
+      "files": {
+        "src/repair_5.py": "broken_5\n"
+      },
+      "writes": {
+        "src/repair_5.py": "fixed_5\n"
+      },
+      "expect": {
+        "src/repair_5.py": "fixed_5"
+      }
+    },
+    {
+      "id": "test-01",
+      "category": "test",
+      "stack": "python",
+      "files": {
+        "src/module_1.py": "module_1\n"
+      },
+      "writes": {
+        "tests/test_1.py": "test_module_1\n"
+      },
+      "expect": {
+        "tests/test_1.py": "test_module_1"
+      }
+    },
+    {
+      "id": "test-02",
+      "category": "test",
+      "stack": "rust",
+      "files": {
+        "src/module_2.rs": "module_2\n"
+      },
+      "writes": {
+        "tests/test_2.rs": "test_module_2\n"
+      },
+      "expect": {
+        "tests/test_2.rs": "test_module_2"
+      }
+    },
+    {
+      "id": "test-03",
+      "category": "test",
+      "stack": "typescript",
+      "files": {
+        "src/module_3.ts": "module_3\n"
+      },
+      "writes": {
+        "tests/test_3.ts": "test_module_3\n"
+      },
+      "expect": {
+        "tests/test_3.ts": "test_module_3"
+      }
+    },
+    {
+      "id": "test-04",
+      "category": "test",
+      "stack": "java",
+      "files": {
+        "src/module_4.java": "module_4\n"
+      },
+      "writes": {
+        "tests/test_4.java": "test_module_4\n"
+      },
+      "expect": {
+        "tests/test_4.java": "test_module_4"
+      }
+    },
+    {
+      "id": "test-05",
+      "category": "test",
+      "stack": "python",
+      "files": {
+        "src/module_5.py": "module_5\n"
+      },
+      "writes": {
+        "tests/test_5.py": "test_module_5\n"
+      },
+      "expect": {
+        "tests/test_5.py": "test_module_5"
+      }
+    },
+    {
+      "id": "refactor-01",
+      "category": "refactor",
+      "stack": "python",
+      "files": {
+        "src/refactor_1.py": "duplicate_1\nduplicate_1\n"
+      },
+      "writes": {
+        "src/refactor_1.py": "helper_1\nuse_helper_1\nuse_helper_1\n"
+      },
+      "expect": {
+        "src/refactor_1.py": "helper_1"
+      },
+      "reject": {
+        "src/refactor_1.py": "duplicate_1"
+      }
+    },
+    {
+      "id": "refactor-02",
+      "category": "refactor",
+      "stack": "rust",
+      "files": {
+        "src/refactor_2.rs": "duplicate_2\nduplicate_2\n"
+      },
+      "writes": {
+        "src/refactor_2.rs": "helper_2\nuse_helper_2\nuse_helper_2\n"
+      },
+      "expect": {
+        "src/refactor_2.rs": "helper_2"
+      },
+      "reject": {
+        "src/refactor_2.rs": "duplicate_2"
+      }
+    },
+    {
+      "id": "refactor-03",
+      "category": "refactor",
+      "stack": "typescript",
+      "files": {
+        "src/refactor_3.ts": "duplicate_3\nduplicate_3\n"
+      },
+      "writes": {
+        "src/refactor_3.ts": "helper_3\nuse_helper_3\nuse_helper_3\n"
+      },
+      "expect": {
+        "src/refactor_3.ts": "helper_3"
+      },
+      "reject": {
+        "src/refactor_3.ts": "duplicate_3"
+      }
+    },
+    {
+      "id": "refactor-04",
+      "category": "refactor",
+      "stack": "java",
+      "files": {
+        "src/refactor_4.java": "duplicate_4\nduplicate_4\n"
+      },
+      "writes": {
+        "src/refactor_4.java": "helper_4\nuse_helper_4\nuse_helper_4\n"
+      },
+      "expect": {
+        "src/refactor_4.java": "helper_4"
+      },
+      "reject": {
+        "src/refactor_4.java": "duplicate_4"
+      }
+    },
+    {
+      "id": "refactor-05",
+      "category": "refactor",
+      "stack": "rust",
+      "files": {
+        "src/refactor_5.rs": "duplicate_5\nduplicate_5\n"
+      },
+      "writes": {
+        "src/refactor_5.rs": "helper_5\nuse_helper_5\nuse_helper_5\n"
+      },
+      "expect": {
+        "src/refactor_5.rs": "helper_5"
+      },
+      "reject": {
+        "src/refactor_5.rs": "duplicate_5"
+      }
+    },
+    {
+      "id": "scaffold-01",
+      "category": "scaffold",
+      "stack": "react",
+      "files": {
+        "README.md": "# react fixture\n"
+      },
+      "writes": {
+        "react/app.txt": "react local scaffold 1\n",
+        "react/test.txt": "react test 1\n"
+      },
+      "expect": {
+        "react/app.txt": "react local scaffold 1",
+        "react/test.txt": "react test 1"
+      }
+    },
+    {
+      "id": "scaffold-02",
+      "category": "scaffold",
+      "stack": "angular",
+      "files": {
+        "README.md": "# angular fixture\n"
+      },
+      "writes": {
+        "angular/app.txt": "angular local scaffold 2\n",
+        "angular/test.txt": "angular test 2\n"
+      },
+      "expect": {
+        "angular/app.txt": "angular local scaffold 2",
+        "angular/test.txt": "angular test 2"
+      }
+    },
+    {
+      "id": "scaffold-03",
+      "category": "scaffold",
+      "stack": "spring-boot",
+      "files": {
+        "README.md": "# spring-boot fixture\n"
+      },
+      "writes": {
+        "spring-boot/app.txt": "spring-boot local scaffold 3\n",
+        "spring-boot/test.txt": "spring-boot test 3\n"
+      },
+      "expect": {
+        "spring-boot/app.txt": "spring-boot local scaffold 3",
+        "spring-boot/test.txt": "spring-boot test 3"
+      }
+    },
+    {
+      "id": "scaffold-04",
+      "category": "scaffold",
+      "stack": "python-service",
+      "files": {
+        "README.md": "# python-service fixture\n"
+      },
+      "writes": {
+        "python-service/app.txt": "python-service local scaffold 4\n",
+        "python-service/test.txt": "python-service test 4\n"
+      },
+      "expect": {
+        "python-service/app.txt": "python-service local scaffold 4",
+        "python-service/test.txt": "python-service test 4"
+      }
+    },
+    {
+      "id": "scaffold-05",
+      "category": "scaffold",
+      "stack": "flutter",
+      "files": {
+        "README.md": "# flutter fixture\n"
+      },
+      "writes": {
+        "flutter/app.txt": "flutter local scaffold 5\n",
+        "flutter/test.txt": "flutter test 5\n"
+      },
+      "expect": {
+        "flutter/app.txt": "flutter local scaffold 5",
+        "flutter/test.txt": "flutter test 5"
+      }
+    }
   ]
 }

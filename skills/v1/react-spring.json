@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "name": "react-spring",
+  "detection": [
+    "frontend/package.json",
+    "backend/pom.xml|backend/build.gradle"
+  ],
+  "conventions": [
+    "follow existing project structure",
+    "change the smallest coherent surface",
+    "add or update meaningful tests"
+  ],
+  "fileBoundaries": [
+    "frontend/**",
+    "backend/**"
+  ],
+  "validation": [
+    {
+      "program": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "requiresApproval": true
+    },
+    {
+      "program": "mvn",
+      "args": [
+        "--offline",
+        "test"
+      ],
+      "requiresApproval": true
+    }
+  ],
+  "commonFailures": [
+    "API contract drift",
+    "CORS configuration",
+    "environment mismatch"
+  ]
+}

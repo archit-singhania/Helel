@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "name": "react",
+  "detection": [
+    "package.json"
+  ],
+  "conventions": [
+    "follow existing project structure",
+    "change the smallest coherent surface",
+    "add or update meaningful tests"
+  ],
+  "fileBoundaries": [
+    "src/**",
+    "public/**",
+    "package.json"
+  ],
+  "validation": [
+    {
+      "program": "npm",
+      "args": [
+        "run",
+        "lint"
+      ],
+      "requiresApproval": true
+    },
+    {
+      "program": "npm",
+      "args": [
+        "run",
+        "test"
+      ],
+      "requiresApproval": true
+    },
+    {
+      "program": "npm",
+      "args": [
+        "run",
+        "build"
+      ],
+      "requiresApproval": true
+    }
+  ],
+  "commonFailures": [
+    "hooks dependencies",
+    "state mutation",
+    "missing accessibility labels"
+  ]
+}

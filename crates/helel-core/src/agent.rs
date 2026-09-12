@@ -13,6 +13,7 @@ pub enum AgentPhase {
     Executing,
     Verifying,
     AwaitingApproval,
+    Paused,
     Completed,
     Failed,
     Cancelled,
@@ -53,6 +54,12 @@ pub struct AgentSession {
     pub pending_tool: Option<ToolRequest>,
     pub observations: Vec<Observation>,
     pub step: usize,
+    #[serde(default)]
+    pub failures: usize,
+    #[serde(default)]
+    pub generated_bytes: usize,
+    #[serde(default)]
+    pub action_fingerprints: Vec<String>,
 }
 
 impl AgentSession {
@@ -70,6 +77,9 @@ impl AgentSession {
             pending_tool: None,
             observations: Vec::new(),
             step: 0,
+            failures: 0,
+            generated_bytes: 0,
+            action_fingerprints: Vec::new(),
         }
     }
 
@@ -132,6 +142,7 @@ impl AgentSession {
                 return Ok(None);
             }
             AgentPhase::AwaitingApproval
+            | AgentPhase::Paused
             | AgentPhase::Completed
             | AgentPhase::Failed
             | AgentPhase::Cancelled => unreachable!(),
@@ -148,6 +159,101 @@ impl AgentSession {
             self.phase = AgentPhase::Cancelled;
             self.pending_tool = None;
         }
+    }
+
+    /// Accepts a planner-selected typed action for execution.
+    ///
+    /// # Errors
+    /// Returns an error for terminal, paused, busy, or exhausted sessions.
+    pub fn propose(&mut self, request: ToolRequest, maximum_steps: usize) -> Result<(), String> {
+        if matches!(
+            self.phase,
+            AgentPhase::Completed | AgentPhase::Failed | AgentPhase::Cancelled
+        ) {
+            return Err("session is terminal".into());
+        }
+        if self.phase == AgentPhase::Paused {
+            return Err("session is paused".into());
+        }
+        if self.pending_tool.is_some() {
+            return Err("session already has a pending action".into());
+        }
+        if self.step >= maximum_steps {
+            self.phase = AgentPhase::Failed;
+            return Err("agent step budget exhausted".into());
+        }
+        let fingerprint = serde_json::to_string(&request).map_err(|error| error.to_string())?;
+        if self.action_fingerprints.contains(&fingerprint) {
+            return Err("agent repeated an identical action".into());
+        }
+        self.action_fingerprints.push(fingerprint);
+        self.step += 1;
+        self.phase = if request.requires_approval() {
+            AgentPhase::AwaitingApproval
+        } else {
+            AgentPhase::Executing
+        };
+        self.pending_tool = Some(request);
+        Ok(())
+    }
+
+    /// Records a tool result and returns control to the planner.
+    ///
+    /// # Errors
+    /// Returns an error for mismatched or absent pending actions.
+    pub fn observe(&mut self, observation: &Observation) -> Result<(), String> {
+        if self.pending_tool.is_none() || observation.step != self.step {
+            return Err("observation does not match a pending action".into());
+        }
+        self.pending_tool = None;
+        self.observations.push(observation.clone());
+        self.generated_bytes = self
+            .generated_bytes
+            .saturating_add(observation.summary.len());
+        if self.generated_bytes > 256_000 {
+            self.phase = AgentPhase::Failed;
+            return Err("agent output budget exhausted".into());
+        }
+        if !observation.success {
+            self.failures += 1;
+        }
+        self.phase = if observation.success || self.failures < 3 {
+            AgentPhase::Planning
+        } else {
+            AgentPhase::Failed
+        };
+        Ok(())
+    }
+
+    pub fn pause(&mut self) {
+        if !matches!(
+            self.phase,
+            AgentPhase::Completed | AgentPhase::Failed | AgentPhase::Cancelled
+        ) {
+            self.phase = AgentPhase::Paused;
+        }
+    }
+    pub fn resume(&mut self) {
+        if self.phase == AgentPhase::Paused {
+            self.phase = if self
+                .pending_tool
+                .as_ref()
+                .is_some_and(ToolRequest::requires_approval)
+            {
+                AgentPhase::AwaitingApproval
+            } else {
+                AgentPhase::Planning
+            };
+        }
+    }
+    pub fn complete(&mut self, summary: String) {
+        self.pending_tool = None;
+        self.observations.push(Observation {
+            step: self.step,
+            summary,
+            success: true,
+        });
+        self.phase = AgentPhase::Completed;
     }
 }
 
@@ -248,5 +354,42 @@ mod tests {
         let loaded = super::load_sessions(directory.path()).unwrap();
         assert_eq!(loaded[0].id, 7);
         assert_eq!(loaded[0].objective, "persist me");
+    }
+    #[test]
+    fn model_driven_loop_pauses_observes_and_completes() {
+        let mut session = AgentSession::new(8, "repair bug".into());
+        session
+            .propose(
+                ToolRequest::ReadFile {
+                    path: "src/lib.rs".into(),
+                },
+                24,
+            )
+            .unwrap();
+        assert_eq!(session.phase, AgentPhase::Executing);
+        session
+            .observe(&Observation {
+                step: 1,
+                summary: "read source".into(),
+                success: true,
+            })
+            .unwrap();
+        assert_eq!(session.phase, AgentPhase::Planning);
+        session
+            .propose(
+                ToolRequest::ApplyPatch {
+                    patch: "patch".into(),
+                    reverse: false,
+                },
+                24,
+            )
+            .unwrap();
+        assert_eq!(session.phase, AgentPhase::AwaitingApproval);
+        session.pause();
+        assert_eq!(session.phase, AgentPhase::Paused);
+        session.resume();
+        assert_eq!(session.phase, AgentPhase::AwaitingApproval);
+        session.complete("task complete".into());
+        assert_eq!(session.phase, AgentPhase::Completed);
     }
 }

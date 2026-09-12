@@ -9,11 +9,16 @@ pub const fn product_name() -> &'static str {
 pub mod agent;
 pub mod audit;
 pub mod intelligence;
+pub mod local_process;
 pub mod mcp;
 pub mod orchestrator;
 pub mod project;
 pub mod proposal;
+pub mod runtime;
+pub mod semantic;
 pub mod system;
+pub mod terminal;
+pub mod watcher;
 pub mod workspace;
 
 #[cfg(test)]

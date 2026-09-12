@@ -15,3 +15,7 @@ Theme, panel dimensions, and up to eight recent project paths are stored locally
 ## Phase 2 editor
 
 Monaco and its TypeScript, JSON, HTML, CSS, and base editor workers are bundled locally. Editor buffers remain in React state with separate current and saved content for dirty-state and diff calculation. Typed Tauri invocations handle workspace registration, tree refresh, text reads/writes, entry operations, and text search/replace. Monaco markers and deterministic merge-conflict checks feed the Problems panel.
+
+## Local agent workspace
+
+The agent panel shows the active objective, plan, pending typed action, observations, and phase. Controls support per-action approval, continue, pause, resume, cancel, and task rollback. Settings can select and health-check local model artifacts. The terminal uses a native PTY, and the workspace tree refreshes from native filesystem events with dirty-buffer conflict notices.

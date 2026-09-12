@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "name": "flutter",
+  "detection": [
+    "pubspec.yaml"
+  ],
+  "conventions": [
+    "follow existing project structure",
+    "change the smallest coherent surface",
+    "add or update meaningful tests"
+  ],
+  "fileBoundaries": [
+    "lib/**",
+    "test/**",
+    "pubspec.yaml"
+  ],
+  "validation": [
+    {
+      "program": "flutter",
+      "args": [
+        "analyze"
+      ],
+      "requiresApproval": true
+    },
+    {
+      "program": "flutter",
+      "args": [
+        "test"
+      ],
+      "requiresApproval": true
+    }
+  ],
+  "commonFailures": [
+    "widget lifecycle",
+    "async context use",
+    "platform plugin mismatch"
+  ]
+}
