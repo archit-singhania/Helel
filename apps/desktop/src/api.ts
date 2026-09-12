@@ -38,6 +38,7 @@ export const workspaceApi = {
   applyPatch: (patch: string, reverse: boolean, approved: boolean) => invoke<TreeEntry[]>("apply_workspace_patch", { patch, reverse, approved }),
   rollbackPatch: () => invoke<TreeEntry[]>("rollback_last_patch"),
   audit: () => invoke<AuditEntry[]>("audit_log"),
+  exportAudit: () => invoke<string>("export_audit_log"),
   buildIndex: () => invoke<CodeIndex>("build_code_index"),
   context: (query: string, limit = 20) => invoke<ContextHit[]>("code_context", { query, limit }),
   definitions: (name: string, limit = 100) => invoke<SymbolMatch[]>("symbol_definitions", { name, limit }),
@@ -50,6 +51,7 @@ export const workspaceApi = {
   completeAgent: (id: number, summary: string) => invoke<AgentSession>("complete_agent_session", { id, summary }),
   listAgents: () => invoke<AgentSession[]>("list_agent_sessions"),
   cancelAgent: (id: number) => invoke<AgentSession>("cancel_agent_session", { id }),
+  retryAgent: (id: number) => invoke<AgentSession>("retry_agent_session", { id }),
 };
 
 export type ProjectProfile = {

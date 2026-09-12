@@ -1,6 +1,7 @@
 //! Append-only local audit ledger with a deterministic hash chain.
 
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     collections::hash_map::DefaultHasher,
     fs::{self, OpenOptions},
@@ -19,10 +20,24 @@ pub struct AuditRecord {
     pub hash: String,
 }
 
-fn digest(sequence: u64, event: &str, detail: &str, previous: &str) -> String {
+fn legacy_digest(sequence: u64, event: &str, detail: &str, previous: &str) -> String {
     let mut h = DefaultHasher::new();
     (sequence, event, detail, previous).hash(&mut h);
     format!("{:016x}", h.finish())
+}
+
+fn digest(sequence: u64, event: &str, detail: &str, previous: &str) -> String {
+    let mut hasher = Sha256::new();
+    for value in [
+        sequence.to_string(),
+        event.into(),
+        detail.into(),
+        previous.into(),
+    ] {
+        hasher.update((value.len() as u64).to_be_bytes());
+        hasher.update(value.as_bytes());
+    }
+    format!("{:x}", hasher.finalize())
 }
 
 /// Reads every record.
@@ -45,7 +60,12 @@ pub fn verify(records: &[AuditRecord]) -> bool {
     for (index, record) in records.iter().enumerate() {
         if record.sequence != index as u64
             || record.previous_hash != previous
-            || record.hash != digest(record.sequence, &record.event, &record.detail, &previous)
+            || record.hash
+                != if record.hash.len() == 16 {
+                    legacy_digest(record.sequence, &record.event, &record.detail, &previous)
+                } else {
+                    digest(record.sequence, &record.event, &record.detail, &previous)
+                }
         {
             return false;
         }
@@ -96,7 +116,30 @@ mod tests {
         append(&p, "tool", "read").unwrap();
         assert!(verify(&read(&p).unwrap()));
         let mut r = read(&p).unwrap();
+        assert_eq!(r[0].hash.len(), 64);
         r[0].detail = "changed".into();
         assert!(!verify(&r));
+    }
+
+    #[test]
+    fn extends_legacy_chains_with_sha256_records() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("audit.jsonl");
+        let legacy = AuditRecord {
+            sequence: 0,
+            event: "legacy".into(),
+            detail: "record".into(),
+            previous_hash: String::new(),
+            hash: legacy_digest(0, "legacy", "record", ""),
+        };
+        fs::write(
+            &path,
+            format!("{}\n", serde_json::to_string(&legacy).unwrap()),
+        )
+        .unwrap();
+        assert!(verify(&read(&path).unwrap()));
+        let next = append(&path, "current", "record").unwrap();
+        assert_eq!(next.hash.len(), 64);
+        assert!(verify(&read(&path).unwrap()));
     }
 }

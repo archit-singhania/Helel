@@ -28,8 +28,35 @@ impl WorkspaceWatcher {
     /// Returns an error when the native watcher cannot be created or attached.
     pub fn start(root: &Path) -> io::Result<Self> {
         let (sender, receiver) = mpsc::channel();
-        let mut watcher = notify::recommended_watcher(move |event| {
-            let _ = sender.send(event);
+        let watched_root = root.to_path_buf();
+        let mut watcher = notify::recommended_watcher(move |event: notify::Result<Event>| {
+            let event = event.map(|mut event| {
+                event.paths.retain(|path| {
+                    path.strip_prefix(&watched_root)
+                        .ok()
+                        .and_then(|relative| relative.components().next())
+                        .is_none_or(|component| {
+                            !matches!(
+                                component.as_os_str().to_str(),
+                                Some(
+                                    ".git"
+                                        | ".helel"
+                                        | ".venv"
+                                        | "node_modules"
+                                        | "target"
+                                        | "dist"
+                                )
+                            )
+                        })
+                });
+                event
+            });
+            if match &event {
+                Ok(event) => !event.paths.is_empty(),
+                Err(_) => true,
+            } {
+                let _ = sender.send(event);
+            }
         })
         .map_err(io::Error::other)?;
         watcher
@@ -83,5 +110,19 @@ mod tests {
         let watcher = WorkspaceWatcher::start(d.path()).unwrap();
         fs::write(d.path().join("changed.txt"), "value").unwrap();
         let _events = watcher.changes(Duration::from_millis(100)).unwrap();
+    }
+
+    #[test]
+    fn ignores_helel_runtime_files() {
+        let d = tempfile::tempdir().unwrap();
+        fs::create_dir(d.path().join(".helel")).unwrap();
+        let watcher = WorkspaceWatcher::start(d.path()).unwrap();
+        fs::write(d.path().join(".helel/index.json"), "value").unwrap();
+        assert!(
+            watcher
+                .changes(Duration::from_millis(100))
+                .unwrap()
+                .is_empty()
+        );
     }
 }

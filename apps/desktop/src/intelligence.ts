@@ -6,6 +6,18 @@ export interface ContextHit { path: string; line: number; score: number; preview
 
 export type AgentPhase = "planning" | "gathering" | "executing" | "verifying" | "awaitingApproval" | "paused" | "completed" | "failed" | "cancelled";
 export type ToolRequest = { kind: "searchCode"; query: string; limit: number } | { kind: "readFile"; path: string } | { kind: "inspectGit" } | { kind: "runCommand"; command: string; args: string[] } | { kind: "applyPatch"; patch: string; reverse: boolean } | { kind: "mcpCall"; server: string; name: string; arguments: Record<string, unknown> };
-export interface AgentSession { id: number; objective: string; phase: AgentPhase; plan: string[]; pendingTool?: ToolRequest; observations: { step: number; summary: string; success: boolean }[]; step: number; }
+export interface AgentSession { id: number; objective: string; phase: AgentPhase; plan: string[]; pendingTool?: ToolRequest; observations: { step: number; summary: string; success: boolean }[]; step: number; startedAtMs: number; }
 
 export function requiresApproval(session: AgentSession) { return session.phase === "awaitingApproval" || session.pendingTool?.kind === "runCommand" || session.pendingTool?.kind === "applyPatch" || session.pendingTool?.kind === "mcpCall"; }
+
+export function describeTool(tool?: ToolRequest) {
+  if (!tool) return "Request another local model proposal";
+  switch (tool.kind) {
+    case "searchCode": return `Search repository context for ${JSON.stringify(tool.query)} (limit ${tool.limit})`;
+    case "readFile": return `Read ${tool.path}`;
+    case "inspectGit": return "Inspect Git status and diffs";
+    case "runCommand": return `Run in workspace: ${[tool.command, ...tool.args].join(" ")}`;
+    case "applyPatch": return `${tool.reverse ? "Reverse" : "Apply"} this workspace patch:\n${tool.patch}`;
+    case "mcpCall": return `Call MCP ${tool.server}.${tool.name} with ${JSON.stringify(tool.arguments, null, 2)}`;
+  }
+}

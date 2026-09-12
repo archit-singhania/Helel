@@ -2,6 +2,7 @@
 
 use crate::local_process::JsonLineProcess;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{fs, io, path::PathBuf, time::Duration};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -56,6 +57,35 @@ impl ModelArtifacts {
                 io::ErrorKind::InvalidData,
                 "weights file is empty",
             ));
+        }
+        let checkpoint = self
+            .weights
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("checkpoint.json");
+        if checkpoint.is_file() {
+            let metadata: serde_json::Value =
+                serde_json::from_slice(&fs::read(checkpoint)?).map_err(io::Error::other)?;
+            let filename = self
+                .weights
+                .file_name()
+                .and_then(|value| value.to_str())
+                .ok_or_else(|| {
+                    io::Error::new(io::ErrorKind::InvalidInput, "invalid weights path")
+                })?;
+            if let Some(expected) = metadata
+                .get("files")
+                .and_then(|files| files.get(filename))
+                .and_then(serde_json::Value::as_str)
+            {
+                let actual = format!("{:x}", Sha256::digest(fs::read(&self.weights)?));
+                if actual != expected {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "model weights checksum mismatch",
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -159,12 +189,30 @@ mod tests {
         fs::write(&w, []).unwrap();
         assert!(
             ModelArtifacts {
+                config: c.clone(),
+                tokenizer: t.clone(),
+                weights: w.clone()
+            }
+            .validate()
+            .is_err()
+        );
+        fs::write(&t, r#"{"vocabulary_size":2}"#).unwrap();
+        fs::write(&w, [1]).unwrap();
+        fs::write(
+            d.path().join("checkpoint.json"),
+            r#"{"files":{"w":"0000000000000000000000000000000000000000000000000000000000000000"}}"#,
+        )
+        .unwrap();
+        assert!(
+            ModelArtifacts {
                 config: c,
                 tokenizer: t,
                 weights: w
             }
             .validate()
-            .is_err()
+            .unwrap_err()
+            .to_string()
+            .contains("checksum")
         );
     }
     #[test]

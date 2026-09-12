@@ -6,7 +6,7 @@ import { App } from "./App";
 import { isDirty, languageForPath, markSaved, updateTab, upsertTab } from "./ide";
 import { DEFAULT_SETTINGS, parseSettings, projectName, withRecentProject } from "./settings";
 import { parseCommand } from "./system";
-import { requiresApproval, type AgentSession } from "./intelligence";
+import { describeTool, requiresApproval, type AgentSession } from "./intelligence";
 
 describe("desktop shell", () => {
   it("renders primary accessible landmarks", () => { const html = renderToStaticMarkup(<App />); expect(html).toContain("aria-label=\"Primary navigation\""); expect(html).toContain("aria-label=\"Editor\""); expect(html).toContain("aria-label=\"Helel agent\""); expect(html).toContain("aria-label=\"Terminal and problems\""); });
@@ -42,9 +42,11 @@ describe("terminal input", () => {
 
 describe("agent controls", () => {
   it("requires review for modifying tools", () => {
-    const session = { id: 1, objective: "verify", phase: "awaitingApproval", plan: [], pendingTool: { kind: "runCommand", command: "cargo", args: ["test"] }, observations: [], step: 3 } satisfies AgentSession;
+    const session = { id: 1, objective: "verify", phase: "awaitingApproval", plan: [], pendingTool: { kind: "runCommand", command: "cargo", args: ["test"] }, observations: [], step: 3, startedAtMs: Date.now() } satisfies AgentSession;
     expect(requiresApproval(session)).toBe(true);
     expect(requiresApproval({ ...session, phase: "gathering", pendingTool: { kind: "inspectGit" } })).toBe(false);
     expect(requiresApproval({ ...session, phase: "gathering", pendingTool: { kind: "mcpCall", server: "local", name: "read", arguments: {} } })).toBe(true);
+    expect(describeTool(session.pendingTool)).toContain("cargo test");
+    expect(describeTool({ kind: "applyPatch", patch: "+++ b/app.py", reverse: false })).toContain("+++ b/app.py");
   });
 });

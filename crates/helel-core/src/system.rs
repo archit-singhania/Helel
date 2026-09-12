@@ -2,9 +2,12 @@
 
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
+use std::time::{Duration, Instant};
+
+const MAX_PROCESS_OUTPUT_BYTES: usize = 1_048_576;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -247,6 +250,20 @@ pub fn run(
     args: &[String],
     approved: bool,
 ) -> io::Result<ProcessResult> {
+    run_with_timeout(root, command, args, approved, Duration::from_secs(300))
+}
+
+/// Runs a direct child with a wall-clock timeout and bounded captured output.
+///
+/// # Errors
+/// Returns an error if approval is missing or the process cannot start or be supervised.
+pub fn run_with_timeout(
+    root: &Path,
+    command: &str,
+    args: &[String],
+    approved: bool,
+    timeout: Duration,
+) -> io::Result<ProcessResult> {
     let risk = classify(command, args);
     if risk != Risk::Safe && !approved {
         return Err(io::Error::new(
@@ -254,12 +271,66 @@ pub fn run(
             format!("{risk:?} command requires approval"),
         ));
     }
-    let output = Command::new(command)
+    let mut child = Command::new(command)
         .args(args)
         .current_dir(root)
         .env("HELEL_WORKSPACE", root)
-        .output()?;
-    Ok(result(command, &output, risk))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| io::Error::other("process stdout unavailable"))?;
+    let stderr = child
+        .stderr
+        .take()
+        .ok_or_else(|| io::Error::other("process stderr unavailable"))?;
+    let stdout = std::thread::spawn(move || read_bounded(stdout));
+    let stderr = std::thread::spawn(move || read_bounded(stderr));
+    let started = Instant::now();
+    let (exit_code, timed_out) = loop {
+        if let Some(status) = child.try_wait()? {
+            break (status.code(), false);
+        }
+        if started.elapsed() >= timeout {
+            child.kill()?;
+            let _ = child.wait()?;
+            break (None, true);
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    };
+    let stdout = stdout
+        .join()
+        .map_err(|_| io::Error::other("process stdout reader failed"))??;
+    let mut stderr = stderr
+        .join()
+        .map_err(|_| io::Error::other("process stderr reader failed"))??;
+    if timed_out {
+        stderr.extend_from_slice(
+            format!("\nprocess timed out after {} ms", timeout.as_millis()).as_bytes(),
+        );
+    }
+    Ok(ProcessResult {
+        command: command.to_owned(),
+        exit_code,
+        stdout: String::from_utf8_lossy(&stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&stderr).into_owned(),
+        risk,
+    })
+}
+
+fn read_bounded(mut reader: impl Read) -> io::Result<Vec<u8>> {
+    let mut stored = Vec::new();
+    let mut buffer = [0_u8; 8192];
+    loop {
+        let count = reader.read(&mut buffer)?;
+        if count == 0 {
+            return Ok(stored);
+        }
+        let remaining = MAX_PROCESS_OUTPUT_BYTES.saturating_sub(stored.len());
+        stored.extend_from_slice(&buffer[..count.min(remaining)]);
+    }
 }
 
 /// Reads branch, working-tree changes, and the current unstaged diff.
@@ -397,19 +468,12 @@ fn feed_git(root: &Path, args: &[&str], input: &str) -> io::Result<()> {
         ))
     }
 }
-fn result(command: &str, output: &Output, risk: Risk) -> ProcessResult {
-    ProcessResult {
-        command: command.to_owned(),
-        exit_code: output.status.code(),
-        stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
-        stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
-        risk,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{Risk, classify, create_checkpoint, patch_paths, restore_checkpoint};
+    use super::{
+        Risk, classify, create_checkpoint, patch_paths, restore_checkpoint, run_with_timeout,
+    };
+    use std::time::Duration;
     use std::{fs, path::PathBuf};
     #[test]
     fn classifies_commands() {
@@ -459,5 +523,20 @@ mod tests {
             patch_paths("--- a/src/old.rs\n+++ /dev/null\n").unwrap(),
             [PathBuf::from("src/old.rs")]
         );
+    }
+
+    #[test]
+    fn stops_processes_at_the_wall_clock_timeout() {
+        let directory = tempfile::tempdir().unwrap();
+        let result = run_with_timeout(
+            directory.path(),
+            "python3",
+            &["-c".into(), "import time; time.sleep(2)".into()],
+            true,
+            Duration::from_millis(50),
+        )
+        .unwrap();
+        assert_eq!(result.exit_code, None);
+        assert!(result.stderr.contains("timed out"));
     }
 }

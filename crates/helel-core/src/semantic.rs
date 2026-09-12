@@ -164,6 +164,105 @@ pub fn rebuild(root: &Path) -> io::Result<SemanticSummary> {
     })
 }
 
+/// Replaces one file's persisted syntax records, or removes them when the file was deleted.
+///
+/// # Errors
+/// Returns an error for unsafe paths, unreadable sources, parser failures, or `SQLite` failures.
+pub fn update_file(root: &Path, relative: &str) -> io::Result<()> {
+    let root = root.canonicalize()?;
+    let relative_path = Path::new(relative);
+    if relative_path.is_absolute()
+        || relative_path
+            .components()
+            .any(|part| matches!(part, std::path::Component::ParentDir))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "semantic index path escapes workspace",
+        ));
+    }
+    if !database(&root).is_file() {
+        rebuild(&root)?;
+    }
+    let mut connection = Connection::open(database(&root)).map_err(sqlite)?;
+    let transaction = connection.transaction().map_err(sqlite)?;
+    for table in ["files", "symbols", "refs", "context"] {
+        transaction
+            .execute(&format!("DELETE FROM {table} WHERE path=?1"), [relative])
+            .map_err(sqlite)?;
+    }
+    let path = root.join(relative_path);
+    let Some(grammar) = language(relative) else {
+        transaction.commit().map_err(sqlite)?;
+        return Ok(());
+    };
+    if !path.is_file() {
+        transaction.commit().map_err(sqlite)?;
+        return Ok(());
+    }
+    let canonical = path.canonicalize()?;
+    if !canonical.starts_with(&root) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "semantic index path escapes workspace",
+        ));
+    }
+    let source = fs::read_to_string(canonical)?;
+    let mut parser = Parser::new();
+    parser.set_language(&grammar).map_err(io::Error::other)?;
+    let tree = parser
+        .parse(&source, None)
+        .ok_or_else(|| io::Error::other("Tree-sitter parser returned no tree"))?;
+    let mut symbols = Vec::new();
+    let mut references = Vec::new();
+    walk(
+        tree.root_node(),
+        &source,
+        relative,
+        &mut symbols,
+        &mut references,
+    );
+    transaction
+        .execute(
+            "INSERT INTO files VALUES (?1,?2,?3)",
+            params![relative, grammar_name(relative), source],
+        )
+        .map_err(sqlite)?;
+    transaction
+        .execute(
+            "INSERT INTO context VALUES (?1,?2)",
+            params![relative, source],
+        )
+        .map_err(sqlite)?;
+    for item in symbols {
+        transaction
+            .execute(
+                "INSERT INTO symbols VALUES (?1,?2,?3,?4,?5)",
+                params![item.name, item.kind, item.path, item.line, item.column],
+            )
+            .map_err(sqlite)?;
+    }
+    for item in references {
+        transaction
+            .execute(
+                "INSERT INTO refs VALUES (?1,?2,?3,?4)",
+                params![item.name, item.path, item.line, item.column],
+            )
+            .map_err(sqlite)?;
+    }
+    transaction.commit().map_err(sqlite)
+}
+
+fn grammar_name(path: &str) -> &'static str {
+    match Path::new(path).extension().and_then(|value| value.to_str()) {
+        Some("rs") => "rust",
+        Some("py") => "python",
+        Some("ts" | "tsx") => "typescript",
+        Some("java") => "java",
+        _ => "unknown",
+    }
+}
+
 /// Finds exact symbol definitions from the persisted `SQLite` index.
 ///
 /// # Errors
@@ -171,6 +270,32 @@ pub fn rebuild(root: &Path) -> io::Result<SemanticSummary> {
 pub fn definitions(root: &Path, name: &str) -> io::Result<Vec<SemanticLocation>> {
     let connection = Connection::open(database(root)).map_err(sqlite)?;
     let mut statement=connection.prepare("SELECT name,kind,path,line,column FROM symbols WHERE name=?1 ORDER BY path,line LIMIT 100").map_err(sqlite)?;
+    statement
+        .query_map([name], |row| {
+            Ok(SemanticLocation {
+                name: row.get(0)?,
+                kind: row.get(1)?,
+                path: row.get(2)?,
+                line: row.get(3)?,
+                column: row.get(4)?,
+            })
+        })
+        .map_err(sqlite)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(sqlite)
+}
+
+/// Finds exact identifier references from the persisted `SQLite` index.
+///
+/// # Errors
+/// Returns an error when the database or query is unavailable.
+pub fn references(root: &Path, name: &str) -> io::Result<Vec<SemanticLocation>> {
+    let connection = Connection::open(database(root)).map_err(sqlite)?;
+    let mut statement = connection
+        .prepare(
+            "SELECT name,'reference',path,line,column FROM refs WHERE name=?1 ORDER BY path,line LIMIT 500",
+        )
+        .map_err(sqlite)?;
     statement
         .query_map([name], |row| {
             Ok(SemanticLocation {
@@ -201,5 +326,14 @@ mod tests {
             definitions(d.path(), "Service").unwrap()[0].path,
             "service.py"
         );
+        assert!(references(d.path(), "answer").unwrap().len() >= 2);
+
+        fs::write(d.path().join("lib.rs"), "fn changed() {}\n").unwrap();
+        update_file(d.path(), "lib.rs").unwrap();
+        assert!(definitions(d.path(), "answer").unwrap().is_empty());
+        assert_eq!(definitions(d.path(), "changed").unwrap().len(), 1);
+        fs::remove_file(d.path().join("lib.rs")).unwrap();
+        update_file(d.path(), "lib.rs").unwrap();
+        assert!(definitions(d.path(), "changed").unwrap().is_empty());
     }
 }

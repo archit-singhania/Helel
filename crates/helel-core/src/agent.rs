@@ -5,6 +5,16 @@ use serde_json::Value;
 use std::fs;
 use std::io;
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const MAX_WALL_TIME_MS: u128 = 30 * 60 * 1_000;
+
+fn now_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,6 +84,8 @@ pub struct AgentSession {
     pub pending_tool: Option<ToolRequest>,
     pub observations: Vec<Observation>,
     pub step: usize,
+    #[serde(default = "now_ms")]
+    pub started_at_ms: u128,
     #[serde(default)]
     pub failures: usize,
     #[serde(default)]
@@ -97,6 +109,7 @@ impl AgentSession {
             pending_tool: None,
             observations: Vec::new(),
             step: 0,
+            started_at_ms: now_ms(),
             failures: 0,
             generated_bytes: 0,
             action_fingerprints: Vec::new(),
@@ -198,6 +211,10 @@ impl AgentSession {
         if self.pending_tool.is_some() {
             return Err("session already has a pending action".into());
         }
+        if now_ms().saturating_sub(self.started_at_ms) > MAX_WALL_TIME_MS {
+            self.phase = AgentPhase::Failed;
+            return Err("agent wall-time budget exhausted".into());
+        }
         if self.step >= maximum_steps {
             self.phase = AgentPhase::Failed;
             return Err("agent step budget exhausted".into());
@@ -224,6 +241,11 @@ impl AgentSession {
     pub fn observe(&mut self, observation: &Observation) -> Result<(), String> {
         if self.pending_tool.is_none() || observation.step != self.step {
             return Err("observation does not match a pending action".into());
+        }
+        if now_ms().saturating_sub(self.started_at_ms) > MAX_WALL_TIME_MS {
+            self.pending_tool = None;
+            self.phase = AgentPhase::Failed;
+            return Err("agent wall-time budget exhausted".into());
         }
         self.pending_tool = None;
         self.observations.push(observation.clone());
@@ -275,6 +297,23 @@ impl AgentSession {
         });
         self.phase = AgentPhase::Completed;
     }
+
+    /// Starts a fresh bounded attempt while preserving the prior observations.
+    ///
+    /// # Errors
+    /// Returns an error unless the previous attempt reached the failed state.
+    pub fn retry(&mut self) -> Result<(), String> {
+        if self.phase != AgentPhase::Failed {
+            return Err("only a failed session can be retried".into());
+        }
+        self.phase = AgentPhase::Planning;
+        self.pending_tool = None;
+        self.failures = 0;
+        self.generated_bytes = 0;
+        self.action_fingerprints.clear();
+        self.started_at_ms = now_ms();
+        Ok(())
+    }
 }
 
 /// Persists the complete session ledger atomically inside the workspace.
@@ -306,7 +345,8 @@ pub fn load_sessions(root: &Path) -> io::Result<Vec<AgentSession>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{AgentPhase, AgentSession, Observation, ToolRequest};
+    use super::{AgentPhase, AgentSession, MAX_WALL_TIME_MS, Observation, ToolRequest, now_ms};
+    use std::fs;
     #[test]
     fn follows_deterministic_state_and_approval_gate() {
         let mut session = AgentSession::new(1, "find greeting".into());
@@ -411,5 +451,94 @@ mod tests {
         assert_eq!(session.phase, AgentPhase::AwaitingApproval);
         session.complete("task complete".into());
         assert_eq!(session.phase, AgentPhase::Completed);
+    }
+
+    #[test]
+    fn rejects_sessions_over_wall_time_budget() {
+        let mut session = AgentSession::new(9, "long task".into());
+        session.started_at_ms = now_ms().saturating_sub(MAX_WALL_TIME_MS + 1);
+        assert!(
+            session
+                .propose(ToolRequest::InspectGit, 24)
+                .unwrap_err()
+                .contains("wall-time")
+        );
+        assert_eq!(session.phase, AgentPhase::Failed);
+        session.retry().unwrap();
+        assert_eq!(session.phase, AgentPhase::Planning);
+        assert!(session.propose(ToolRequest::InspectGit, 24).is_ok());
+    }
+
+    #[test]
+    fn executes_read_patch_validate_complete_and_rollback_flow() {
+        let directory = tempfile::tempdir().unwrap();
+        fs::write(directory.path().join("app.py"), "print('old')\n").unwrap();
+        let mut session = AgentSession::new(10, "change old to new".into());
+
+        session
+            .propose(
+                ToolRequest::ReadFile {
+                    path: "app.py".into(),
+                },
+                24,
+            )
+            .unwrap();
+        let source = fs::read_to_string(directory.path().join("app.py")).unwrap();
+        session
+            .observe(&Observation {
+                step: 1,
+                summary: source,
+                success: true,
+            })
+            .unwrap();
+
+        let patch = "--- a/app.py\n+++ b/app.py\n@@ -1 +1 @@\n-print('old')\n+print('new')\n";
+        session
+            .propose(
+                ToolRequest::ApplyPatch {
+                    patch: patch.into(),
+                    reverse: false,
+                },
+                24,
+            )
+            .unwrap();
+        crate::system::apply_transactional_patch(directory.path(), patch, false).unwrap();
+        session
+            .observe(&Observation {
+                step: 2,
+                summary: "patch applied".into(),
+                success: true,
+            })
+            .unwrap();
+
+        let args = vec![
+            "-c".into(),
+            "from pathlib import Path; assert \"new\" in Path(\"app.py\").read_text()".into(),
+        ];
+        session
+            .propose(
+                ToolRequest::RunCommand {
+                    command: "python3".into(),
+                    args: args.clone(),
+                },
+                24,
+            )
+            .unwrap();
+        let validation = crate::system::run(directory.path(), "python3", &args, true).unwrap();
+        session
+            .observe(&Observation {
+                step: 3,
+                summary: validation.stdout,
+                success: validation.exit_code == Some(0),
+            })
+            .unwrap();
+        session.complete("changed and validated app.py".into());
+        assert_eq!(session.phase, AgentPhase::Completed);
+
+        crate::system::rollback_last_patch(directory.path()).unwrap();
+        assert_eq!(
+            fs::read_to_string(directory.path().join("app.py")).unwrap(),
+            "print('old')\n"
+        );
     }
 }

@@ -2,14 +2,19 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "helel.events.agent.v1",
   "type": "object",
-  "required": ["id", "objective", "phase", "plan", "observations", "step"],
+  "required": ["id", "objective", "phase", "plan", "observations", "step", "startedAtMs", "failures", "generatedBytes", "actionFingerprints"],
   "properties": {
     "id": { "type": "integer" },
     "objective": { "type": "string" },
-    "phase": { "enum": ["planning", "gathering", "executing", "verifying", "awaitingApproval", "completed", "failed", "cancelled"] },
+    "phase": { "enum": ["planning", "gathering", "executing", "verifying", "awaitingApproval", "paused", "completed", "failed", "cancelled"] },
     "plan": { "type": "array", "items": { "type": "string" } },
     "pendingTool": { "type": ["object", "null"] },
     "observations": { "type": "array" },
-    "step": { "type": "integer" }
-  }
+    "step": { "type": "integer", "minimum": 0, "maximum": 24 },
+    "startedAtMs": { "type": "integer", "minimum": 0 },
+    "failures": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "generatedBytes": { "type": "integer", "minimum": 0 },
+    "actionFingerprints": { "type": "array", "maxItems": 24, "items": { "type": "string" } }
+  },
+  "additionalProperties": false
 }

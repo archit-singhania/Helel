@@ -7,6 +7,7 @@
     { "type": "object", "required": ["kind", "path"], "properties": { "kind": { "const": "readFile" }, "path": { "type": "string" } }, "additionalProperties": false },
     { "type": "object", "required": ["kind"], "properties": { "kind": { "const": "inspectGit" } }, "additionalProperties": false },
     { "type": "object", "required": ["kind", "command", "args"], "properties": { "kind": { "const": "runCommand" }, "command": { "type": "string" }, "args": { "type": "array", "items": { "type": "string" } } }, "additionalProperties": false },
-    { "type": "object", "required": ["kind", "patch", "reverse"], "properties": { "kind": { "const": "applyPatch" }, "patch": { "type": "string" }, "reverse": { "type": "boolean" } }, "additionalProperties": false }
+    { "type": "object", "required": ["kind", "patch", "reverse"], "properties": { "kind": { "const": "applyPatch" }, "patch": { "type": "string", "maxLength": 65536 }, "reverse": { "type": "boolean" } }, "additionalProperties": false },
+    { "type": "object", "required": ["kind", "server", "name", "arguments"], "properties": { "kind": { "const": "mcpCall" }, "server": { "type": "string", "minLength": 1, "maxLength": 65536 }, "name": { "type": "string", "minLength": 1, "maxLength": 65536 }, "arguments": { "type": "object" } }, "additionalProperties": false }
   ]
 }

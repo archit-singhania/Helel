@@ -149,6 +149,59 @@ fn with_workspace<T>(
     operation(workspace).map_err(|error| error.to_string())
 }
 
+fn refresh_indexes_at(
+    root: &std::path::Path,
+    indexes: &State<'_, IndexState>,
+) -> Result<CodeIndex, String> {
+    semantic::rebuild(root).map_err(|error| error.to_string())?;
+    let index = CodeIndex::build(root).map_err(|error| error.to_string())?;
+    index.save(root).map_err(|error| error.to_string())?;
+    *indexes
+        .0
+        .lock()
+        .map_err(|_| "index lock is unavailable".to_owned())? = Some(index.clone());
+    Ok(index)
+}
+
+fn update_indexes_at(
+    root: &std::path::Path,
+    indexes: &State<'_, IndexState>,
+    removed: &[&str],
+    updated: &[&str],
+) -> Result<(), String> {
+    let has_index = indexes
+        .0
+        .lock()
+        .map_err(|_| "index lock is unavailable".to_owned())?
+        .is_some();
+    if !has_index {
+        return refresh_indexes_at(root, indexes).map(|_| ());
+    }
+    for path in removed.iter().chain(updated) {
+        semantic::update_file(root, path).map_err(|error| error.to_string())?;
+    }
+    let mut guard = indexes
+        .0
+        .lock()
+        .map_err(|_| "index lock is unavailable".to_owned())?;
+    let index = guard
+        .as_mut()
+        .ok_or_else(|| "index is unavailable".to_owned())?;
+    for path in removed {
+        index
+            .remove_file(root, path)
+            .map_err(|error| error.to_string())?;
+    }
+    for path in updated {
+        if root.join(path).is_file() {
+            index
+                .update_file(root, path)
+                .map_err(|error| error.to_string())?;
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn open_workspace(
     root: String,
@@ -186,15 +239,24 @@ fn open_workspace(
 }
 
 #[tauri::command]
-fn workspace_changes(watchers: State<'_, WatcherState>) -> Result<Vec<WorkspaceEvent>, String> {
-    watchers
+fn workspace_changes(
+    watchers: State<'_, WatcherState>,
+    state: State<'_, WorkspaceState>,
+    indexes: State<'_, IndexState>,
+) -> Result<Vec<WorkspaceEvent>, String> {
+    let changes = watchers
         .0
         .lock()
         .map_err(|_| "watcher lock is unavailable".to_owned())?
         .as_ref()
         .ok_or_else(|| "no workspace watcher is active".to_owned())?
         .changes(std::time::Duration::from_millis(250))
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+    if !changes.is_empty() {
+        let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
+        refresh_indexes_at(&root, &indexes)?;
+    }
+    Ok(changes)
 }
 
 #[tauri::command]
@@ -323,13 +385,9 @@ fn save_file(
     let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
     let result = with_workspace(&state, |workspace| {
         workspace.write_text(&path, &content)?;
-        if let Ok(mut guard) = indexes.0.lock() {
-            if let Some(index) = guard.as_mut() {
-                index.update_file(workspace.root(), &path)?;
-            }
-        }
         Ok(())
-    });
+    })
+    .and_then(|()| update_indexes_at(&root, &indexes, &[], &[&path]));
     audited(
         &root,
         format!("save file {path}"),
@@ -343,6 +401,7 @@ fn create_entry(
     path: String,
     directory: bool,
     state: State<'_, WorkspaceState>,
+    indexes: State<'_, IndexState>,
 ) -> Result<Vec<TreeEntry>, String> {
     let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
     let result = with_workspace(&state, |workspace| {
@@ -352,6 +411,13 @@ fn create_entry(
             workspace.create_file(&path)?;
         }
         workspace.tree()
+    })
+    .and_then(|tree| {
+        if directory {
+            Ok(tree)
+        } else {
+            update_indexes_at(&root, &indexes, &[], &[&path]).map(|()| tree)
+        }
     });
     audited(
         &root,
@@ -366,11 +432,19 @@ fn rename_entry(
     from: String,
     to: String,
     state: State<'_, WorkspaceState>,
+    indexes: State<'_, IndexState>,
 ) -> Result<Vec<TreeEntry>, String> {
     let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
     let result = with_workspace(&state, |workspace| {
         workspace.rename(&from, &to)?;
         workspace.tree()
+    })
+    .and_then(|tree| {
+        if root.join(&to).is_file() {
+            update_indexes_at(&root, &indexes, &[&from], &[&to]).map(|()| tree)
+        } else {
+            refresh_indexes_at(&root, &indexes).map(|_| tree)
+        }
     });
     audited(
         &root,
@@ -381,12 +455,17 @@ fn rename_entry(
     )
 }
 #[tauri::command]
-fn delete_entry(path: String, state: State<'_, WorkspaceState>) -> Result<Vec<TreeEntry>, String> {
+fn delete_entry(
+    path: String,
+    state: State<'_, WorkspaceState>,
+    indexes: State<'_, IndexState>,
+) -> Result<Vec<TreeEntry>, String> {
     let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
     let result = with_workspace(&state, |workspace| {
         workspace.delete(&path)?;
         workspace.tree()
-    });
+    })
+    .and_then(|tree| update_indexes_at(&root, &indexes, &[&path], &[]).map(|()| tree));
     audited(
         &root,
         format!("delete entry {path}"),
@@ -408,11 +487,13 @@ fn replace_workspace(
     query: String,
     replacement: String,
     state: State<'_, WorkspaceState>,
+    indexes: State<'_, IndexState>,
 ) -> Result<usize, String> {
     let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
     let result = with_workspace(&state, |workspace| {
         workspace.replace_all(&query, &replacement)
-    });
+    })
+    .and_then(|count| refresh_indexes_at(&root, &indexes).map(|_| count));
     audited(
         &root,
         format!("replace workspace text {query:?}"),
@@ -855,15 +936,17 @@ fn apply_workspace_patch(
     reverse: bool,
     approved: bool,
     state: State<'_, WorkspaceState>,
+    indexes: State<'_, IndexState>,
 ) -> Result<Vec<TreeEntry>, String> {
     if !approved {
         return Err("patch application requires approval".to_owned());
     }
+    let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
     let result = with_workspace(&state, |workspace| {
         system::apply_transactional_patch(workspace.root(), &patch, reverse)?;
         workspace.tree()
-    });
-    let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
+    })
+    .and_then(|tree| refresh_indexes_at(&root, &indexes).map(|_| tree));
     persist_audit(
         &root,
         &AuditEntry {
@@ -885,12 +968,16 @@ fn apply_workspace_patch(
 }
 
 #[tauri::command]
-fn rollback_last_patch(state: State<'_, WorkspaceState>) -> Result<Vec<TreeEntry>, String> {
+fn rollback_last_patch(
+    state: State<'_, WorkspaceState>,
+    indexes: State<'_, IndexState>,
+) -> Result<Vec<TreeEntry>, String> {
     let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
     let result = with_workspace(&state, |workspace| {
         system::rollback_last_patch(workspace.root())?;
         workspace.tree()
-    });
+    })
+    .and_then(|tree| refresh_indexes_at(&root, &indexes).map(|_| tree));
     audited(
         &root,
         "rollback last patch".into(),
@@ -915,22 +1002,46 @@ fn audit_log(state: State<'_, WorkspaceState>) -> Result<Vec<AuditEntry>, String
 }
 
 #[tauri::command]
+fn export_audit_log(state: State<'_, WorkspaceState>) -> Result<String, String> {
+    let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
+    let source = root.join(".helel/audit.jsonl");
+    persist_audit(
+        &root,
+        &AuditEntry {
+            timestamp_ms: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis(),
+            action: "export audit log".into(),
+            risk: Risk::Safe,
+            approved: true,
+            success: true,
+        },
+    )?;
+    let records = audit::read(&source).map_err(|error| error.to_string())?;
+    if !audit::verify(&records) {
+        return Err("audit chain is invalid".into());
+    }
+    let directory = root.join(".helel/exports");
+    std::fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    let filename = format!(
+        "audit-{}.jsonl",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    );
+    std::fs::copy(&source, directory.join(&filename)).map_err(|error| error.to_string())?;
+    Ok(format!(".helel/exports/{filename}"))
+}
+
+#[tauri::command]
 fn build_code_index(
     state: State<'_, WorkspaceState>,
     indexes: State<'_, IndexState>,
 ) -> Result<CodeIndex, String> {
-    let (root, index) = with_workspace(&state, |workspace| {
-        semantic::rebuild(workspace.root())?;
-        let index = CodeIndex::build(workspace.root())?;
-        index.save(workspace.root())?;
-        Ok((workspace.root().to_path_buf(), index))
-    })?;
-    let _ = root;
-    *indexes
-        .0
-        .lock()
-        .map_err(|_| "index lock is unavailable".to_owned())? = Some(index.clone());
-    Ok(index)
+    let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
+    refresh_indexes_at(&root, &indexes)
 }
 
 fn current_index(
@@ -975,7 +1086,21 @@ fn symbol_definitions(
     state: State<'_, WorkspaceState>,
     indexes: State<'_, IndexState>,
 ) -> Result<Vec<Symbol>, String> {
-    Ok(current_index(&state, &indexes)?.definitions(&name, limit))
+    let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
+    let _ = current_index(&state, &indexes)?;
+    Ok(semantic::definitions(&root, &name)
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .take(limit)
+        .map(|item| Symbol {
+            name: item.name,
+            kind: item.kind,
+            path: item.path,
+            line: item.line,
+            column: item.column,
+            signature: String::new(),
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -985,7 +1110,19 @@ fn symbol_references(
     state: State<'_, WorkspaceState>,
     indexes: State<'_, IndexState>,
 ) -> Result<Vec<Reference>, String> {
-    Ok(current_index(&state, &indexes)?.references(&name, limit))
+    let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
+    let _ = current_index(&state, &indexes)?;
+    Ok(semantic::references(&root, &name)
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .take(limit)
+        .map(|item| Reference {
+            name: item.name,
+            path: item.path,
+            line: item.line,
+            column: item.column,
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -1093,6 +1230,9 @@ fn advance_agent_session(
         let result = execute_agent_tool(&root, &index, &request, approved, &clients);
         let success = result.is_ok();
         let summary = result.unwrap_or_else(|error| error);
+        if success && matches!(request, ToolRequest::ApplyPatch { .. }) {
+            refresh_indexes_at(&root, &indexes)?;
+        }
         persist_audit(
             &root,
             &AuditEntry {
@@ -1352,6 +1492,29 @@ fn cancel_agent_session(
     Ok(updated)
 }
 
+#[tauri::command]
+fn retry_agent_session(
+    id: u64,
+    state: State<'_, WorkspaceState>,
+    agents: State<'_, AgentState>,
+) -> Result<AgentSession, String> {
+    let mut sessions = agents
+        .sessions
+        .lock()
+        .map_err(|_| "agent lock is unavailable".to_owned())?;
+    let session = sessions
+        .get_mut(&id)
+        .ok_or_else(|| "agent session was not found".to_owned())?;
+    session.retry()?;
+    let updated = session.clone();
+    let snapshot: Vec<_> = sessions.values().cloned().collect();
+    drop(sessions);
+    with_workspace(&state, |workspace| {
+        save_sessions(workspace.root(), &snapshot)
+    })?;
+    Ok(updated)
+}
+
 /// Starts the native Helel application event loop.
 ///
 /// # Panics
@@ -1405,6 +1568,7 @@ pub fn run() {
             apply_workspace_patch,
             rollback_last_patch,
             audit_log,
+            export_audit_log,
             build_code_index,
             code_context,
             symbol_definitions,
@@ -1416,7 +1580,8 @@ pub fn run() {
             set_agent_paused,
             complete_agent_session,
             list_agent_sessions,
-            cancel_agent_session
+            cancel_agent_session,
+            retry_agent_session
         ])
         .run(tauri::generate_context!())
         .expect("failed to run Helel desktop application");

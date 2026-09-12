@@ -100,3 +100,4 @@ kbd { padding: 2px 5px; border: 1px solid var(--border); border-radius: 4px; fon
 .agent-workspace li { margin: 6px 0; }
 .agent-workspace li span { display: block; overflow-wrap: anywhere; }
 .agent-workspace li.failure { color: var(--danger); }
+.agent-session pre, .agent-workspace pre { max-height: 220px; margin: 7px 0; padding: 8px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); background: var(--canvas); font: 9px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }

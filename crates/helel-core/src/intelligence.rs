@@ -199,6 +199,13 @@ impl CodeIndex {
         if metadata.len() <= MAX_FILE_BYTES {
             let content = fs::read_to_string(&path)?;
             let language = language_for(&path).to_owned();
+            if language == "text" && !is_manifest(relative) {
+                self.generated_at_ms = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis();
+                return self.save(&root);
+            }
             parse(
                 relative,
                 &language,
@@ -223,6 +230,22 @@ impl CodeIndex {
             .unwrap_or_default()
             .as_millis();
         self.save(&root)
+    }
+
+    /// Removes one deleted or renamed file from the in-memory and persisted index.
+    ///
+    /// # Errors
+    /// Returns an error when the updated index cannot be persisted.
+    pub fn remove_file(&mut self, root: &Path, relative: &str) -> io::Result<()> {
+        self.files.retain(|file| file.path != relative);
+        self.symbols.retain(|symbol| symbol.path != relative);
+        self.references
+            .retain(|reference| reference.path != relative);
+        self.generated_at_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        self.save(root)
     }
 
     #[must_use]

@@ -1318,6 +1318,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "tree-sitter",
  "tree-sitter-java",
