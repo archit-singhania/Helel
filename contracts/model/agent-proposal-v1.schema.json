@@ -5,7 +5,7 @@
   "required": ["rationale", "tool", "arguments"],
   "properties": {
     "rationale": { "type": "string" },
-    "tool": { "enum": ["searchCode", "readFile", "inspectGit", "runCommand", "applyPatch", "complete"] },
+    "tool": { "enum": ["searchCode", "readFile", "inspectGit", "runCommand", "applyPatch", "mcpCall", "complete"] },
     "arguments": { "type": "object" }
   },
   "additionalProperties": false

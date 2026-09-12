@@ -5,7 +5,7 @@ from dataclasses import dataclass
 import json
 from typing import Callable
 
-ALLOWED_TOOLS = frozenset({"searchCode", "readFile", "inspectGit", "runCommand", "applyPatch", "complete"})
+ALLOWED_TOOLS = frozenset({"searchCode", "readFile", "inspectGit", "runCommand", "applyPatch", "mcpCall", "complete"})
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,7 @@ def parse_proposal(text: str) -> ModelProposal:
     arguments = value["arguments"]
     required: dict[str, dict[str, type]] = {
         "searchCode": {"query": str}, "readFile": {"path": str}, "inspectGit": {},
-        "runCommand": {"command": str, "args": list}, "applyPatch": {"patch": str, "reverse": bool}, "complete": {},
+        "runCommand": {"command": str, "args": list}, "applyPatch": {"patch": str, "reverse": bool}, "mcpCall": {"server": str, "name": str, "arguments": dict}, "complete": {},
     }
     shape = required[value["tool"]]
     if set(arguments) != set(shape) or any(not isinstance(arguments[key], kind) for key, kind in shape.items()):

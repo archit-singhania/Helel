@@ -1,6 +1,7 @@
 //! Auditable deterministic agent session state and tool contracts.
 
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::fs;
 use std::io;
 use std::path::Path;
@@ -22,17 +23,36 @@ pub enum AgentPhase {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "camelCase")]
 pub enum ToolRequest {
-    SearchCode { query: String, limit: usize },
-    ReadFile { path: String },
+    SearchCode {
+        query: String,
+        limit: usize,
+    },
+    ReadFile {
+        path: String,
+    },
     InspectGit,
-    RunCommand { command: String, args: Vec<String> },
-    ApplyPatch { patch: String, reverse: bool },
+    RunCommand {
+        command: String,
+        args: Vec<String>,
+    },
+    ApplyPatch {
+        patch: String,
+        reverse: bool,
+    },
+    McpCall {
+        server: String,
+        name: String,
+        arguments: Value,
+    },
 }
 
 impl ToolRequest {
     #[must_use]
     pub const fn requires_approval(&self) -> bool {
-        matches!(self, Self::RunCommand { .. } | Self::ApplyPatch { .. })
+        matches!(
+            self,
+            Self::RunCommand { .. } | Self::ApplyPatch { .. } | Self::McpCall { .. }
+        )
     }
 }
 

@@ -45,5 +45,6 @@ describe("agent controls", () => {
     const session = { id: 1, objective: "verify", phase: "awaitingApproval", plan: [], pendingTool: { kind: "runCommand", command: "cargo", args: ["test"] }, observations: [], step: 3 } satisfies AgentSession;
     expect(requiresApproval(session)).toBe(true);
     expect(requiresApproval({ ...session, phase: "gathering", pendingTool: { kind: "inspectGit" } })).toBe(false);
+    expect(requiresApproval({ ...session, phase: "gathering", pendingTool: { kind: "mcpCall", server: "local", name: "read", arguments: {} } })).toBe(true);
   });
 });

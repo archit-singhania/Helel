@@ -118,16 +118,24 @@ pub fn restore_checkpoint(root: &Path, checkpoint: &TaskCheckpoint) -> io::Resul
 /// Returns an error when the patch declares no paths or an unsafe path.
 pub fn patch_paths(patch: &str) -> io::Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
-    for line in patch.lines().filter(|line| line.starts_with("+++ ")) {
+    for line in patch
+        .lines()
+        .filter(|line| line.starts_with("+++ ") || line.starts_with("--- "))
+    {
         let raw = line
-            .trim_start_matches("+++ ")
+            .strip_prefix("+++ ")
+            .or_else(|| line.strip_prefix("--- "))
+            .unwrap_or_default()
             .split('\t')
             .next()
             .unwrap_or_default();
         if raw == "/dev/null" {
             continue;
         }
-        let relative = raw.strip_prefix("b/").unwrap_or(raw);
+        let relative = raw
+            .strip_prefix("b/")
+            .or_else(|| raw.strip_prefix("a/"))
+            .unwrap_or(raw);
         let target_path = PathBuf::from(relative);
         if target_path.is_absolute()
             || target_path
@@ -443,5 +451,13 @@ mod tests {
             [PathBuf::from("src/lib.rs")]
         );
         assert!(patch_paths("+++ b/../outside\n").is_err());
+    }
+
+    #[test]
+    fn patch_paths_include_deleted_files() {
+        assert_eq!(
+            patch_paths("--- a/src/old.rs\n+++ /dev/null\n").unwrap(),
+            [PathBuf::from("src/old.rs")]
+        );
     }
 }

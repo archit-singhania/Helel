@@ -63,6 +63,7 @@ impl ModelArtifacts {
 
 pub struct LocalModelRuntime {
     process: JsonLineProcess,
+    maximum_new_tokens: usize,
 }
 impl LocalModelRuntime {
     /// Starts a packaged or explicitly selected local inference executable.
@@ -75,6 +76,14 @@ impl LocalModelRuntime {
         artifacts: &ModelArtifacts,
     ) -> io::Result<Self> {
         artifacts.validate()?;
+        let config: serde_json::Value =
+            serde_json::from_slice(&fs::read(&artifacts.config)?).map_err(io::Error::other)?;
+        let maximum_new_tokens = config
+            .get("context_length")
+            .or_else(|| config.get("contextLength"))
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(128)
+            .clamp(1, 512) as usize;
         let mut args = base_args.to_vec();
         for (flag, path) in [
             ("--config", &artifacts.config),
@@ -96,7 +105,14 @@ impl LocalModelRuntime {
                 "local runtime health check failed",
             ));
         }
-        Ok(Self { process })
+        Ok(Self {
+            process,
+            maximum_new_tokens,
+        })
+    }
+    #[must_use]
+    pub const fn maximum_new_tokens(&self) -> usize {
+        self.maximum_new_tokens
     }
     /// Sends a validated generation request and returns the next event.
     ///

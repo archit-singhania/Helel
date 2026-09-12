@@ -108,6 +108,19 @@ impl ProposalGuard {
                         .ok_or("reverse must be a boolean")?,
                 })
             }
+            "mcpCall" if exact(&proposal.arguments, &["server", "name", "arguments"]) => {
+                let arguments = proposal
+                    .arguments
+                    .get("arguments")
+                    .filter(|value| value.is_object())
+                    .ok_or("MCP arguments must be an object")?
+                    .clone();
+                ProposalAction::Tool(ToolRequest::McpCall {
+                    server: string(&proposal.arguments, "server")?,
+                    name: string(&proposal.arguments, "name")?,
+                    arguments,
+                })
+            }
             "complete" if exact(&proposal.arguments, &[]) => {
                 ProposalAction::Complete(proposal.rationale)
             }
@@ -137,5 +150,13 @@ mod tests {
                 )
                 .is_err()
         );
+        assert!(matches!(
+            guard.decode(
+                r#"{"rationale":"use local tool","tool":"mcpCall","arguments":{"server":"fixture","name":"read","arguments":{"path":"README.md"}}}"#,
+                "1",
+                "mcpnonce"
+            ),
+            Ok(ProposalAction::Tool(ToolRequest::McpCall { .. }))
+        ));
     }
 }

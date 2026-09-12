@@ -4,13 +4,13 @@ Plan date: 2026-09-11
 
 ## Current truth
 
-Helel v0.1 is a buildable local developer preview. The editor, workspace tools, Git inspection, process runner, repository index, deterministic session state, dataset/tokenizer pipeline, model architecture, local inference protocol, and release checks exist and pass automated verification.
+Helel v0.1 is a verified source-checkout developer preview. The desktop routes locally generated proposals through a bounded Rust planner/executor, uses Tree-sitter and SQLite repository intelligence, supervises local inference and PTY processes, supports MCP 2025-06-18 over local stdio, and protects edits with approval, audit and rollback boundaries.
 
-Helel is not yet a Codex- or Claude-like coding agent. The current agent follows a fixed scripted sequence, the indexer is lexical, no useful Helel-46M weights exist, the MLX process is not packaged with the app, and the desktop does not yet route model proposals through the Rust agent executor. Full manual product testing should begin only after the P0 work below.
+The included smoke checkpoint validates loading and inference transport; it is intentionally too small and under-trained to perform useful coding. A useful private Helel model still requires an approved corpus, local training, evaluation and checkpoint selection. Source-checkout manual testing may now begin in disposable repositories, while clean-machine and release acceptance remain pending.
 
 ## Missing capabilities
 
-### P0 — required before full manual testing
+### P0 — implemented for source-checkout manual testing
 
 1. **Real agent orchestration**
    - Replace the fixed search → Git → `cargo test` sequence with a bounded loop.
@@ -71,7 +71,7 @@ Helel is not yet a Codex- or Claude-like coding agent. The current agent follows
    - Add exact definition/reference lookup and ranked context budgets.
    - Acceptance: symbol/reference fixtures cover Rust, TypeScript/JavaScript, Python, and Java with no stale records after mutations.
 
-### P1 — required before calling v0.1 broadly usable
+### P1 — partially implemented; useful weights remain the main product dependency
 
 9. **Framework skills**
    - Add versioned skills for React, Angular, Spring Boot, Python services, and full-stack React/Spring and Angular/Spring projects.

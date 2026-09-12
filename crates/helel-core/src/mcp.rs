@@ -209,7 +209,7 @@ mod tests {
     }
     #[test]
     fn initializes_and_discovers_stdio_tools() {
-        let code = "import sys,json\nfor line in sys.stdin:\n p=json.loads(line)\n if 'id' not in p: continue\n result={'protocolVersion':'2025-06-18','capabilities':{'tools':{}}} if p['method']=='initialize' else {'tools':[{'name':'fixture','inputSchema':{'type':'object'}}]}\n print(json.dumps({'jsonrpc':'2.0','id':p['id'],'result':result}),flush=True)";
+        let code = "import sys,json\nfor line in sys.stdin:\n p=json.loads(line)\n if 'id' not in p: continue\n if p['method']=='initialize': result={'protocolVersion':'2025-06-18','capabilities':{'tools':{}}}\n elif p['method']=='tools/list': result={'tools':[{'name':'fixture','inputSchema':{'type':'object'}}]}\n else: result={'content':[{'type':'text','text':str(p['params']['arguments']['value'])}]}\n print(json.dumps({'jsonrpc':'2.0','id':p['id'],'result':result}),flush=True)";
         let config = McpServerConfig {
             name: "fixture".into(),
             program: "python3".into(),
@@ -222,6 +222,10 @@ mod tests {
             "2025-06-18"
         );
         assert_eq!(client.list_tools().unwrap()["tools"][0]["name"], "fixture");
+        assert_eq!(
+            client.call_tool("fixture", &json!({"value": 42})).unwrap()["content"][0]["text"],
+            "42"
+        );
         client.stop().unwrap();
     }
 }
