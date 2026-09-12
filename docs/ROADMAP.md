@@ -13,6 +13,7 @@
 | 8 | Helel-46M product model | Infrastructure complete; weights pending |
 | 9 | Model and agent integration | Complete; weights pending |
 | 10 | Optimization, safety, packaging, v0.1 | Complete developer preview |
+| 11 | Local-agent hardening and pre-manual readiness | In progress: benchmark/protocol foundations implemented |
 
 Each phase must have a scoped execution plan and pass `python3 scripts/verify.py` before completion.
 

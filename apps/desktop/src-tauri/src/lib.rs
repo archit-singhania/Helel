@@ -2,6 +2,7 @@
 
 use helel_core::agent::{AgentSession, Observation, ToolRequest, load_sessions, save_sessions};
 use helel_core::intelligence::{CodeIndex, ContextHit, Reference, Symbol};
+use helel_core::project::{self, ProjectProfile};
 use helel_core::system::{self, GitSummary, Risk};
 use helel_core::workspace::{SearchMatch, TreeEntry, Workspace};
 use serde::Serialize;
@@ -113,6 +114,10 @@ fn open_workspace(
 #[tauri::command]
 fn refresh_tree(state: State<'_, WorkspaceState>) -> Result<Vec<TreeEntry>, String> {
     with_workspace(&state, Workspace::tree)
+}
+#[tauri::command]
+fn project_profile(state: State<'_, WorkspaceState>) -> Result<ProjectProfile, String> {
+    with_workspace(&state, |workspace| Ok(project::detect(workspace.root())))
 }
 #[tauri::command]
 fn read_file(path: String, state: State<'_, WorkspaceState>) -> Result<String, String> {
@@ -599,6 +604,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             open_workspace,
             refresh_tree,
+            project_profile,
             read_file,
             save_file,
             create_entry,

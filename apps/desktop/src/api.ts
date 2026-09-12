@@ -6,6 +6,7 @@ import type { AgentSession, CodeIndex, ContextHit, ReferenceMatch, SymbolMatch }
 export const workspaceApi = {
   open: (root: string) => invoke<TreeEntry[]>("open_workspace", { root }),
   refresh: () => invoke<TreeEntry[]>("refresh_tree"),
+  projectProfile: () => invoke<ProjectProfile>("project_profile"),
   read: (path: string) => invoke<string>("read_file", { path }),
   save: (path: string, content: string) => invoke<void>("save_file", { path, content }),
   create: (path: string, directory: boolean) => invoke<TreeEntry[]>("create_entry", { path, directory }),
@@ -27,4 +28,9 @@ export const workspaceApi = {
   advanceAgent: (id: number, approved: boolean) => invoke<AgentSession>("advance_agent_session", { id, approved }),
   listAgents: () => invoke<AgentSession[]>("list_agent_sessions"),
   cancelAgent: (id: number) => invoke<AgentSession>("cancel_agent_session", { id }),
+};
+
+export type ProjectProfile = {
+  kind: "rust" | "react" | "angular" | "node" | "python" | "maven" | "gradle" | "flutter" | "unknown";
+  commands: Array<{ label: string; program: string; args: string[]; workingDirectory: string; timeoutSeconds: number; requiresApproval: boolean }>;
 };

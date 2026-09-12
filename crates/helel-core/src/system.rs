@@ -1,8 +1,9 @@
 //! Classified, shell-free process and Git operations.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::fs;
 use std::io::{self, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Output, Stdio};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -29,6 +30,85 @@ pub struct GitSummary {
     pub branch: String,
     pub changes: Vec<String>,
     pub diff: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckpointEntry {
+    pub path: String,
+    pub existed: bool,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskCheckpoint {
+    pub entries: Vec<CheckpointEntry>,
+}
+
+/// Creates a task-scoped checkpoint. Paths must be relative and remain inside `root`.
+///
+/// # Errors
+/// Returns an error for escaping paths or unreadable files.
+pub fn create_checkpoint(root: &Path, paths: &[PathBuf]) -> io::Result<TaskCheckpoint> {
+    let root = root.canonicalize()?;
+    let mut entries = Vec::new();
+    for relative in paths {
+        if relative.is_absolute()
+            || relative
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "checkpoint path escapes workspace",
+            ));
+        }
+        let path = root.join(relative);
+        let existed = path.is_file();
+        let bytes = if existed {
+            fs::read(&path)?
+        } else {
+            Vec::new()
+        };
+        entries.push(CheckpointEntry {
+            path: relative.to_string_lossy().into_owned(),
+            existed,
+            bytes,
+        });
+    }
+    Ok(TaskCheckpoint { entries })
+}
+
+/// Restores only checkpointed paths, preserving unrelated user changes.
+///
+/// # Errors
+/// Returns an error for escaping paths or failed filesystem restoration.
+pub fn restore_checkpoint(root: &Path, checkpoint: &TaskCheckpoint) -> io::Result<()> {
+    let root = root.canonicalize()?;
+    for entry in &checkpoint.entries {
+        let relative = Path::new(&entry.path);
+        if relative.is_absolute()
+            || relative
+                .components()
+                .any(|c| matches!(c, std::path::Component::ParentDir))
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "checkpoint path escapes workspace",
+            ));
+        }
+        let path = root.join(relative);
+        if entry.existed {
+            if let Some(parent) = path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::write(path, &entry.bytes)?;
+        } else if path.exists() {
+            fs::remove_file(path)?;
+        }
+    }
+    Ok(())
 }
 
 #[must_use]
@@ -181,7 +261,8 @@ fn result(command: &str, output: &Output, risk: Risk) -> ProcessResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{Risk, classify};
+    use super::{Risk, classify, create_checkpoint, restore_checkpoint};
+    use std::{fs, path::PathBuf};
     #[test]
     fn classifies_commands() {
         assert_eq!(classify("git", &["status".into()]), Risk::Safe);
@@ -190,5 +271,29 @@ mod tests {
         assert_eq!(classify("cat", &["../secret".into()]), Risk::Dangerous);
         assert_eq!(classify("rm", &["file".into()]), Risk::Dangerous);
         assert_eq!(classify("sh", &["-c".into()]), Risk::Dangerous);
+    }
+    #[test]
+    fn checkpoint_preserves_unrelated_changes() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("owned.txt"), "before").unwrap();
+        fs::write(dir.path().join("user.txt"), "user-before").unwrap();
+        let checkpoint = create_checkpoint(
+            dir.path(),
+            &[PathBuf::from("owned.txt"), PathBuf::from("new.txt")],
+        )
+        .unwrap();
+        fs::write(dir.path().join("owned.txt"), "after").unwrap();
+        fs::write(dir.path().join("new.txt"), "new").unwrap();
+        fs::write(dir.path().join("user.txt"), "user-after").unwrap();
+        restore_checkpoint(dir.path(), &checkpoint).unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.path().join("owned.txt")).unwrap(),
+            "before"
+        );
+        assert!(!dir.path().join("new.txt").exists());
+        assert_eq!(
+            fs::read_to_string(dir.path().join("user.txt")).unwrap(),
+            "user-after"
+        );
     }
 }

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "tasks": [
+    {"id":"edit-01","category":"edit"},{"id":"edit-02","category":"edit"},{"id":"edit-03","category":"edit"},{"id":"edit-04","category":"edit"},{"id":"edit-05","category":"edit"},{"id":"edit-06","category":"edit"},{"id":"edit-07","category":"edit"},{"id":"edit-08","category":"edit"},{"id":"edit-09","category":"edit"},{"id":"edit-10","category":"edit"},
+    {"id":"repair-01","category":"repair"},{"id":"repair-02","category":"repair"},{"id":"repair-03","category":"repair"},{"id":"repair-04","category":"repair"},{"id":"repair-05","category":"repair"},
+    {"id":"test-01","category":"test"},{"id":"test-02","category":"test"},{"id":"test-03","category":"test"},{"id":"test-04","category":"test"},{"id":"test-05","category":"test"},
+    {"id":"refactor-01","category":"refactor"},{"id":"refactor-02","category":"refactor"},{"id":"refactor-03","category":"refactor"},{"id":"refactor-04","category":"refactor"},{"id":"refactor-05","category":"refactor"},
+    {"id":"scaffold-01","category":"scaffold"},{"id":"scaffold-02","category":"scaffold"},{"id":"scaffold-03","category":"scaffold"},{"id":"scaffold-04","category":"scaffold"},{"id":"scaffold-05","category":"scaffold"}
+  ]
+}
