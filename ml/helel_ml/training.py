@@ -49,6 +49,37 @@ def packed_sequences(texts: Iterable[str], tokenizer: ByteBPETokenizer, sequence
     return [stream[index : index + sequence_length + 1] for index in range(0, usable, sequence_length + 1)]
 
 
+def language_balanced_texts(records: list[dict[str, object]], seed: int = 42, temperature: float = 0.5) -> tuple[list[str], dict[str, int]]:
+    """Sample one deterministic epoch while reducing domination by large languages.
+
+    A temperature of one preserves the observed distribution; zero samples languages
+    uniformly. Documents inside a language remain uniformly sampled.
+    """
+    if not 0.0 <= temperature <= 1.0:
+        raise ValueError("language temperature must be between zero and one")
+    groups: dict[str, list[str]] = {}
+    for record in records:
+        text = record.get("text")
+        if not isinstance(text, str):
+            raise ValueError("dataset records require text")
+        language = record.get("language", "unknown")
+        if not isinstance(language, str) or not language:
+            language = "unknown"
+        groups.setdefault(language, []).append(text)
+    if not groups:
+        return [], {}
+    names = sorted(groups)
+    weights = [len(groups[name]) ** temperature for name in names]
+    rng = random.Random(seed)
+    sampled: list[str] = []
+    counts = {name: 0 for name in names}
+    for _ in range(len(records)):
+        language = rng.choices(names, weights=weights, k=1)[0]
+        sampled.append(rng.choice(groups[language]))
+        counts[language] += 1
+    return sampled, counts
+
+
 def batches(sequences: list[list[int]], batch_size: int, seed: int) -> Iterator[list[list[int]]]:
     order = list(range(len(sequences)))
     random.Random(seed).shuffle(order)

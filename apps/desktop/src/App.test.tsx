@@ -5,7 +5,7 @@ vi.mock("./monaco", () => ({}));
 import { App } from "./App";
 import { isDirty, languageForPath, markSaved, updateTab, upsertTab } from "./ide";
 import { DEFAULT_SETTINGS, parseSettings, projectName, withRecentProject } from "./settings";
-import { parseCommand } from "./system";
+import { appendTerminalHistory, parseCommand } from "./system";
 import { describeTool, requiresApproval, type AgentSession } from "./intelligence";
 
 describe("desktop shell", () => {
@@ -29,6 +29,9 @@ describe("editor state", () => {
   it("maps common file extensions to Monaco languages", () => {
     expect(languageForPath("src/App.tsx")).toBe("typescript");
     expect(languageForPath("README.md")).toBe("markdown");
+    expect(languageForPath("Sources/App.swift")).toBe("swift");
+    expect(languageForPath("src/Service.cs")).toBe("csharp");
+    expect(languageForPath("lib/widget.dart")).toBe("dart");
     expect(languageForPath("unknown.xyz")).toBe("plaintext");
   });
 });
@@ -37,6 +40,13 @@ describe("terminal input", () => {
   it("parses arguments without invoking a shell", () => {
     expect(parseCommand('git commit -m "local change"')).toEqual({ command: "git", args: ["commit", "-m", "local change"] });
     expect(parseCommand("sh -c 'unterminated")).toBeUndefined();
+  });
+  it("bounds rendered terminal history", () => {
+    const history = Array.from({ length: 2_000 }, (_, index) => String(index));
+    const next = appendTerminalHistory(history, "new");
+    expect(next).toHaveLength(2_000);
+    expect(next[0]).toBe("1");
+    expect(next.at(-1)).toBe("new");
   });
 });
 

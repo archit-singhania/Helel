@@ -5,6 +5,12 @@ export interface ProcessExit { id: number; exitCode: number | null; }
 export interface GitSummary { branch: string; changes: string[]; diff: string; stagedDiff: string; }
 export interface AuditEntry { timestampMs: number; action: string; risk: Risk; approved: boolean; success: boolean; }
 
+const TERMINAL_HISTORY_LIMIT = 2_000;
+
+export function appendTerminalHistory(current: string[], ...entries: string[]) {
+  return [...current, ...entries].slice(-TERMINAL_HISTORY_LIMIT);
+}
+
 export function parseCommand(input: string): { command: string; args: string[] } | undefined {
   const tokens: string[] = [];
   let token = "";

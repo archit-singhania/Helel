@@ -17,6 +17,7 @@
     "active": true,
     "category": "DeveloperTool",
     "copyright": "Copyright 2026 Helel contributors",
-    "shortDescription": "Offline-first local software engineering environment"
+    "shortDescription": "Offline-first local software engineering environment",
+    "macOS": { "infoPlist": "Info.plist" }
   }
 }

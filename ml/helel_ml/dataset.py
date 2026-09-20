@@ -10,7 +10,24 @@ import unicodedata
 
 PIPELINE_VERSION = 1
 ALLOWED_LICENSES = frozenset({"Apache-2.0", "MIT", "BSD-2-Clause", "BSD-3-Clause", "ISC", "CC0-1.0", "Unlicense"})
-TEXT_EXTENSIONS = frozenset({".c", ".cc", ".cpp", ".css", ".go", ".h", ".hpp", ".html", ".java", ".js", ".json", ".md", ".py", ".rs", ".sh", ".toml", ".ts", ".tsx", ".txt", ".yaml", ".yml"})
+LANGUAGE_EXTENSIONS = {
+    ".c": "c", ".h": "c", ".cc": "cpp", ".cpp": "cpp", ".cxx": "cpp", ".hpp": "cpp",
+    ".cs": "csharp", ".dart": "dart", ".ex": "elixir", ".exs": "elixir", ".erl": "erlang",
+    ".fs": "fsharp", ".fsx": "fsharp", ".go": "go", ".hs": "haskell", ".java": "java",
+    ".js": "javascript", ".jsx": "javascript", ".kt": "kotlin", ".kts": "kotlin", ".lua": "lua",
+    ".m": "objective-c", ".mm": "objective-cpp", ".php": "php", ".pl": "perl", ".proto": "protobuf",
+    ".py": "python", ".r": "r", ".rb": "ruby", ".rs": "rust", ".scala": "scala", ".sql": "sql",
+    ".swift": "swift", ".ts": "typescript", ".tsx": "typescript", ".vue": "vue", ".svelte": "svelte",
+    ".zig": "zig", ".sh": "shell", ".bash": "shell", ".zsh": "shell", ".fish": "shell",
+    ".css": "css", ".scss": "scss", ".less": "less", ".html": "html", ".htm": "html",
+    ".json": "json", ".jsonl": "json", ".toml": "toml", ".yaml": "yaml", ".yml": "yaml",
+    ".xml": "xml", ".md": "markdown", ".rst": "restructuredtext", ".txt": "text",
+}
+SPECIAL_FILENAMES = {
+    "dockerfile": "dockerfile", "makefile": "makefile", "cmakelists.txt": "cmake",
+    "gemfile": "ruby", "rakefile": "ruby", "justfile": "makefile", "procfile": "text",
+}
+TEXT_EXTENSIONS = frozenset(LANGUAGE_EXTENSIONS)
 SECRET_PATTERNS = (
     re.compile(r"AKIA[0-9A-Z]{16}"),
     re.compile(r"gh[pousr]_[A-Za-z0-9_]{20,}"),
@@ -51,6 +68,7 @@ class DatasetDocument:
     text: str
     sha256: str
     redactions: int
+    language: str
 
 
 @dataclass(frozen=True)
@@ -62,6 +80,13 @@ class BuildReport:
     near_duplicates: int
     redactions: int
     split_counts: dict[str, int]
+    language_counts: dict[str, int]
+
+
+def language_for_path(path: Path | str) -> str | None:
+    """Classify common source formats without inspecting untrusted content."""
+    value = Path(path)
+    return SPECIAL_FILENAMES.get(value.name.lower()) or LANGUAGE_EXTENSIONS.get(value.suffix.lower())
 
 
 def normalize(text: str) -> str:
@@ -119,7 +144,8 @@ class DatasetBuilder:
             paths = sorted({path for pattern in patterns for path in root.glob(pattern) if path.is_file()})
             for path in paths:
                 read_files += 1
-                if path.is_symlink() or path.suffix.lower() not in TEXT_EXTENSIONS or path.stat().st_size > 2 * 1024 * 1024:
+                language = language_for_path(path)
+                if path.is_symlink() or language is None or path.stat().st_size > 2 * 1024 * 1024:
                     rejected += 1
                     continue
                 try:
@@ -149,12 +175,15 @@ class DatasetBuilder:
                 fingerprints.append(shingles)
                 for shingle in shingles:
                     shingle_owners.setdefault(shingle, set()).add(fingerprint_index)
-                documents.append(DatasetDocument(digest[:24], source.source_id, relative, source.license, text, digest, found))
+                documents.append(DatasetDocument(digest[:24], source.source_id, relative, source.license, text, digest, found, language))
         documents.sort(key=lambda item: item.document_id)
         counts = {name: 0 for name in ("train", "validation", "test")}
         for document in documents:
             counts[self.split_for(document.document_id)] += 1
-        return documents, BuildReport(read_files, len(documents), rejected, exact_duplicates, near_duplicates, redactions, counts)
+        language_counts: dict[str, int] = {}
+        for document in documents:
+            language_counts[document.language] = language_counts.get(document.language, 0) + 1
+        return documents, BuildReport(read_files, len(documents), rejected, exact_duplicates, near_duplicates, redactions, counts, dict(sorted(language_counts.items())))
 
     @staticmethod
     def split_for(document_id: str) -> str:

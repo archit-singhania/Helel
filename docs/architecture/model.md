@@ -12,6 +12,8 @@ Phase 6 accepts only explicitly registered local sources with an allowlisted SPD
 
 The Helel tokenizer is deterministic byte-level BPE with stable merge tie-breaking and reserved padding, sequence, and fill-in-the-middle tokens. Every UTF-8 string remains lossless. The serialized format is versioned and covered by a JSON Schema contract. Dataset outputs and tokenizer artifacts are generated locally and are excluded from Git by default.
 
+Phase 12 classifies more than 40 common programming and documentation formats in every accepted document and records per-language coverage in the manifest. Tokenizer and training inputs use seeded temperature sampling: dominant languages retain more samples while low-volume languages receive enough exposure to avoid being erased by a large TypeScript, Python, or Rust source. The sampler is deterministic, configurable, and preserves the source license, revision, redaction, deduplication, and split-lineage checks.
+
 ## Validation model
 
 Phase 7 defines Helel-22M as a 22,816,128-parameter decoder-only Transformer with tied token embeddings, 12 layers, 384 hidden dimensions, six attention heads, 1,024 SwiGLU dimensions, RMS normalization, rotary positions, and causal scaled-dot-product attention. Its versioned configuration uses a 4,096-token vocabulary and 1,024-token context.

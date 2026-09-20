@@ -52,6 +52,12 @@ Workspace MCP configuration is stored at `.helel/mcp.json`:
 
 The Rust client uses local stdio, performs MCP 2025-06-18 initialization, discovers tools with `tools/list`, and routes calls through per-action approval. Network MCP transports are not enabled.
 
+## Offline voice on macOS
+
+Helel does not use browser or hosted speech APIs. This checkout uses Homebrew's open-source `whisper.cpp` command and the multilingual base model at `ml/checkpoints/voice/ggml-base.bin`. In Settings → Offline voice, press **Use installed offline voice** to discover both paths. Open a disposable project, go to Agent, press **Voice**, speak for up to 30 seconds, and press **Listening** to stop. Helel detects the spoken language locally. Review or edit the transcript before starting the task. The speaker button in the active task reads the latest update with macOS `/usr/bin/say`.
+
+The first microphone use displays the macOS permission prompt. Denying it leaves typed tasks fully functional. Recordings and generated transcript files under `.helel/voice` are removed immediately after each attempt; only the resulting task text and audit metadata remain.
+
 ## Local test order
 
 Use a disposable repository or committed branch. Test opening/editing, an external edit, PTY input/cancel, a patch and rollback, app restart/audit history, smoke-model health, a trained-model read action, a trained-model edit action, failing validation/retry, and MCP discovery/call. Record failures as HelelBench cases before testing valuable workspaces.

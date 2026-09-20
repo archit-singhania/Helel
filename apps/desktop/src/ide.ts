@@ -5,7 +5,7 @@ export interface Problem { path: string; line: number; column: number; severity:
 
 export function languageForPath(path: string) {
   const extension = path.split(".").at(-1)?.toLowerCase();
-  return ({ ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript", json: "json", css: "css", html: "html", md: "markdown", py: "python", rs: "rust", java: "java", sql: "sql", yaml: "yaml", yml: "yaml", xml: "xml", sh: "shell" } as Record<string, string>)[extension ?? ""] ?? "plaintext";
+  return ({ ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript", json: "json", jsonl: "json", css: "css", scss: "scss", less: "less", html: "html", md: "markdown", py: "python", rs: "rust", java: "java", kt: "kotlin", kts: "kotlin", go: "go", c: "c", h: "c", cc: "cpp", cpp: "cpp", hpp: "cpp", cs: "csharp", swift: "swift", dart: "dart", php: "php", rb: "ruby", ex: "elixir", exs: "elixir", lua: "lua", r: "r", pl: "perl", scala: "scala", fs: "fsharp", fsx: "fsharp", hs: "haskell", m: "objective-c", mm: "objective-cpp", proto: "protobuf", vue: "vue", svelte: "svelte", zig: "zig", sql: "sql", yaml: "yaml", yml: "yaml", toml: "toml", xml: "xml", sh: "shell", bash: "shell", zsh: "shell", fish: "shell" } as Record<string, string>)[extension ?? ""] ?? "plaintext";
 }
 
 export function upsertTab(tabs: EditorTab[], tab: EditorTab) { return tabs.some((item) => item.path === tab.path) ? tabs : [...tabs, tab]; }

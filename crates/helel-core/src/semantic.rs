@@ -91,18 +91,30 @@ fn walk(
 /// Returns an error for unreadable sources, parser failures, or `SQLite` failures.
 pub fn rebuild(root: &Path) -> io::Result<SemanticSummary> {
     let root = root.canonicalize()?;
+    let index = crate::intelligence::CodeIndex::build(&root)?;
+    rebuild_from_index(&root, &index)
+}
+
+/// Rebuilds the semantic database from an already collected repository index.
+///
+/// # Errors
+/// Returns an error for unreadable sources, parser failures, or `SQLite` failures.
+pub fn rebuild_from_index(
+    root: &Path,
+    index: &crate::intelligence::CodeIndex,
+) -> io::Result<SemanticSummary> {
+    let root = root.canonicalize()?;
     fs::create_dir_all(root.join(".helel"))?;
     let path = database(&root);
     let temporary = root.join(".helel/index.sqlite.tmp");
     let _ = fs::remove_file(&temporary);
     let mut connection = Connection::open(&temporary).map_err(sqlite)?;
     connection.execute_batch("PRAGMA journal_mode=OFF; CREATE TABLE files(path TEXT PRIMARY KEY, language TEXT NOT NULL, content TEXT NOT NULL); CREATE TABLE symbols(name TEXT NOT NULL, kind TEXT NOT NULL, path TEXT NOT NULL, line INTEGER NOT NULL, column INTEGER NOT NULL); CREATE INDEX symbols_name ON symbols(name); CREATE TABLE refs(name TEXT NOT NULL, path TEXT NOT NULL, line INTEGER NOT NULL, column INTEGER NOT NULL); CREATE INDEX refs_name ON refs(name); CREATE VIRTUAL TABLE context USING fts5(path UNINDEXED, content);").map_err(sqlite)?;
-    let legacy = crate::intelligence::CodeIndex::build(&root)?;
     let transaction = connection.transaction().map_err(sqlite)?;
     let mut symbol_count = 0;
     let mut reference_count = 0;
     let mut file_count = 0;
-    for file in &legacy.files {
+    for file in &index.files {
         let Some(grammar) = language(&file.path) else {
             continue;
         };
@@ -162,6 +174,28 @@ pub fn rebuild(root: &Path) -> io::Result<SemanticSummary> {
         references: reference_count,
         database: path.to_string_lossy().into_owned(),
     })
+}
+
+/// Removes one path and all descendants from the semantic database.
+///
+/// # Errors
+/// Returns an error when the local database cannot be updated.
+pub fn remove_path_prefix(root: &Path, relative: &str) -> io::Result<()> {
+    let database = database(&root.canonicalize()?);
+    if !database.is_file() {
+        return Ok(());
+    }
+    let connection = Connection::open(database).map_err(sqlite)?;
+    let prefix = format!("{}/%", relative.trim_end_matches('/'));
+    for table in ["files", "symbols", "refs", "context"] {
+        connection
+            .execute(
+                &format!("DELETE FROM {table} WHERE path = ?1 OR path LIKE ?2"),
+                params![relative, prefix],
+            )
+            .map_err(sqlite)?;
+    }
+    Ok(())
 }
 
 /// Replaces one file's persisted syntax records, or removes them when the file was deleted.
@@ -335,5 +369,11 @@ mod tests {
         fs::remove_file(d.path().join("lib.rs")).unwrap();
         update_file(d.path(), "lib.rs").unwrap();
         assert!(definitions(d.path(), "changed").unwrap().is_empty());
+        fs::create_dir(d.path().join("nested")).unwrap();
+        fs::write(d.path().join("nested/child.rs"), "fn nested_symbol() {}\n").unwrap();
+        update_file(d.path(), "nested/child.rs").unwrap();
+        assert_eq!(definitions(d.path(), "nested_symbol").unwrap().len(), 1);
+        remove_path_prefix(d.path(), "nested").unwrap();
+        assert!(definitions(d.path(), "nested_symbol").unwrap().is_empty());
     }
 }

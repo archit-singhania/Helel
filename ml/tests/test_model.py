@@ -9,7 +9,7 @@ import unittest
 from helel_ml.model import HELEL_22M, ModelConfig
 from helel_ml.evaluation import EvaluationCase, exact_match
 from helel_ml.tokenizer import ByteBPETokenizer
-from helel_ml.training import TrainingConfig, fill_in_middle, learning_rate, packed_sequences, verify_checkpoint
+from helel_ml.training import TrainingConfig, fill_in_middle, language_balanced_texts, learning_rate, packed_sequences, verify_checkpoint
 
 
 class ModelPipelineTest(unittest.TestCase):
@@ -55,6 +55,15 @@ class ModelPipelineTest(unittest.TestCase):
         self.assertTrue(exact_match("return value\n", "return value"))
         with self.assertRaisesRegex(ValueError, "unsupported"):
             EvaluationCase("bad", "other", "x", "y").validate()
+
+    def test_language_sampling_is_deterministic_and_reduces_dominance(self) -> None:
+        records = [{"language": "python", "text": f"py-{index}"} for index in range(90)] + [{"language": "rust", "text": f"rs-{index}"} for index in range(10)]
+        first, counts = language_balanced_texts(records, seed=7, temperature=0.5)
+        second, repeated = language_balanced_texts(records, seed=7, temperature=0.5)
+        self.assertEqual(first, second)
+        self.assertEqual(counts, repeated)
+        self.assertGreater(counts["rust"], 10)
+        self.assertEqual(sum(counts.values()), len(records))
 
 
 if __name__ == "__main__":

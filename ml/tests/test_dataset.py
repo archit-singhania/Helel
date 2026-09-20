@@ -3,7 +3,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from helel_ml.dataset import DatasetBuilder, normalize, redact_secrets
+from helel_ml.dataset import DatasetBuilder, language_for_path, normalize, redact_secrets
 
 
 FIXTURE_REGISTRY = Path(__file__).parents[1] / "fixtures" / "sources.json"
@@ -53,6 +53,10 @@ class DatasetPipelineTest(unittest.TestCase):
     def test_split_assignment_is_stable_and_exclusive(self) -> None:
         assignments = {DatasetBuilder.split_for(f"{value:08x}" + "0" * 16) for value in range(1_000)}
         self.assertEqual(assignments, {"train", "validation", "test"})
+
+    def test_classifies_broad_language_formats(self) -> None:
+        expected = {"main.rs": "rust", "App.tsx": "typescript", "main.go": "go", "Model.swift": "swift", "build.gradle.kts": "kotlin", "Dockerfile": "dockerfile", "query.sql": "sql", "view.vue": "vue", "service.ex": "elixir", "tool.zig": "zig"}
+        self.assertEqual({path: language_for_path(path) for path in expected}, expected)
 
 
 if __name__ == "__main__":

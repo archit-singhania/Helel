@@ -248,6 +248,25 @@ impl CodeIndex {
         self.save(root)
     }
 
+    /// Removes an indexed path and every indexed descendant.
+    ///
+    /// # Errors
+    /// Returns an error when the updated index cannot be persisted.
+    pub fn remove_path_prefix(&mut self, root: &Path, relative: &str) -> io::Result<()> {
+        let prefix = format!("{}/", relative.trim_end_matches('/'));
+        self.files
+            .retain(|file| file.path != relative && !file.path.starts_with(&prefix));
+        self.symbols
+            .retain(|symbol| symbol.path != relative && !symbol.path.starts_with(&prefix));
+        self.references
+            .retain(|reference| reference.path != relative && !reference.path.starts_with(&prefix));
+        self.generated_at_ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        self.save(root)
+    }
+
     #[must_use]
     pub fn definitions(&self, name: &str, limit: usize) -> Vec<Symbol> {
         self.symbols
@@ -359,8 +378,32 @@ fn language_for(path: &Path) -> &'static str {
         "java" => "java",
         "c" | "h" => "c",
         "cc" | "cpp" | "hpp" => "cpp",
+        "cs" => "csharp",
+        "swift" => "swift",
+        "kt" | "kts" => "kotlin",
+        "dart" => "dart",
+        "php" => "php",
+        "rb" => "ruby",
+        "ex" | "exs" => "elixir",
+        "erl" => "erlang",
+        "lua" => "lua",
+        "r" => "r",
+        "pl" => "perl",
+        "scala" => "scala",
+        "fs" | "fsx" => "fsharp",
+        "hs" => "haskell",
+        "m" => "objective-c",
+        "mm" => "objective-cpp",
+        "proto" => "protobuf",
+        "vue" => "vue",
+        "svelte" => "svelte",
+        "zig" => "zig",
+        "sql" => "sql",
         "json" => "json",
         "toml" => "toml",
+        "yaml" | "yml" => "yaml",
+        "xml" => "xml",
+        "sh" | "bash" | "zsh" | "fish" => "shell",
         "md" => "markdown",
         "css" => "css",
         "html" => "html",
@@ -505,5 +548,23 @@ mod tests {
         loaded.update_file(directory.path(), "main.rs").unwrap();
         assert_eq!(loaded.definitions("farewell", 10).len(), 1);
         assert!(loaded.definitions("greet", 10).is_empty());
+        fs::create_dir(directory.path().join("nested")).unwrap();
+        fs::write(
+            directory.path().join("nested/child.rs"),
+            "pub fn nested_symbol() {}\n",
+        )
+        .unwrap();
+        let mut rebuilt = CodeIndex::build(directory.path()).unwrap();
+        rebuilt.save(directory.path()).unwrap();
+        rebuilt
+            .remove_path_prefix(directory.path(), "nested")
+            .unwrap();
+        assert!(rebuilt.definitions("nested_symbol", 10).is_empty());
+        assert!(
+            rebuilt
+                .files
+                .iter()
+                .all(|file| !file.path.starts_with("nested/"))
+        );
     }
 }
