@@ -260,10 +260,19 @@ fn workspace_changes(
         .map_err(|_| "watcher lock is unavailable".to_owned())?
         .as_ref()
         .ok_or_else(|| "no workspace watcher is active".to_owned())?
-        .changes(std::time::Duration::from_millis(250))
+        .changes(std::time::Duration::ZERO)
         .map_err(|error| error.to_string())?;
     if !changes.is_empty() {
         let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
+        // Native directory moves may emit only a directory event. Reconcile once
+        // for the batch so descendants and deleted old paths are both reflected.
+        if changes.iter().flat_map(|event| &event.paths).any(|path| {
+            let path = std::path::Path::new(path);
+            path.starts_with(&root) && path.is_dir() && !path.is_symlink()
+        }) {
+            refresh_indexes_at(&root, &indexes)?;
+            return Ok(changes);
+        }
         let mut removed = std::collections::BTreeSet::new();
         let mut updated = std::collections::BTreeSet::new();
         for path in changes.iter().flat_map(|event| &event.paths) {
@@ -1228,12 +1237,15 @@ fn load_code_index(
         return Ok(index);
     }
     let root = with_workspace(&state, |workspace| Ok(workspace.root().to_path_buf()))?;
-    let index = if root.join(".helel/index.sqlite").is_file() {
-        CodeIndex::load(&root).or_else(|_| CodeIndex::build(&root))
-    } else {
-        return refresh_indexes_at(&root, &indexes);
-    }
-    .map_err(|error| error.to_string())?;
+    let index = match CodeIndex::load(&root) {
+        Ok(index)
+            if root.join(".helel/index.sqlite").is_file()
+                && index.is_current(&root).map_err(|error| error.to_string())? =>
+        {
+            index
+        }
+        _ => return refresh_indexes_at(&root, &indexes),
+    };
     *indexes
         .0
         .lock()
@@ -1253,14 +1265,10 @@ fn current_index(
     {
         return Ok(index);
     }
-    let index = with_workspace(state, |workspace| {
-        CodeIndex::load(workspace.root()).or_else(|_| CodeIndex::build(workspace.root()))
-    })?;
-    *indexes
-        .0
-        .lock()
-        .map_err(|_| "index lock is unavailable".to_owned())? = Some(index.clone());
-    Ok(index)
+    let root = with_workspace(state, |workspace| Ok(workspace.root().to_path_buf()))?;
+    // A cache miss must reconcile both stores; loading JSON alone can resurrect
+    // data changed while the application was closed.
+    refresh_indexes_at(&root, indexes)
 }
 
 #[tauri::command]

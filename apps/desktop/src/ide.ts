@@ -10,5 +10,5 @@ export function languageForPath(path: string) {
 
 export function upsertTab(tabs: EditorTab[], tab: EditorTab) { return tabs.some((item) => item.path === tab.path) ? tabs : [...tabs, tab]; }
 export function updateTab(tabs: EditorTab[], path: string, content: string) { return tabs.map((tab) => tab.path === path ? { ...tab, content } : tab); }
-export function markSaved(tabs: EditorTab[], path: string) { return tabs.map((tab) => tab.path === path ? { ...tab, savedContent: tab.content } : tab); }
+export function markSaved(tabs: EditorTab[], path: string, savedContent: string) { return tabs.map((tab) => tab.path === path ? { ...tab, savedContent } : tab); }
 export function isDirty(tab: EditorTab) { return tab.content !== tab.savedContent; }

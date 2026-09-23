@@ -186,11 +186,11 @@ pub fn remove_path_prefix(root: &Path, relative: &str) -> io::Result<()> {
         return Ok(());
     }
     let connection = Connection::open(database).map_err(sqlite)?;
-    let prefix = format!("{}/%", relative.trim_end_matches('/'));
+    let prefix = format!("{}/", relative.trim_end_matches('/'));
     for table in ["files", "symbols", "refs", "context"] {
         connection
             .execute(
-                &format!("DELETE FROM {table} WHERE path = ?1 OR path LIKE ?2"),
+                &format!("DELETE FROM {table} WHERE path = ?1 OR substr(path, 1, length(?2)) = ?2"),
                 params![relative, prefix],
             )
             .map_err(sqlite)?;
@@ -348,6 +348,22 @@ pub fn references(root: &Path, name: &str) -> io::Result<Vec<SemanticLocation>> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn prefix_removal_treats_sql_wildcards_literally() {
+        let d = tempfile::tempdir().unwrap();
+        for name in ["a_b", "axb", "a%b"] {
+            fs::create_dir(d.path().join(name)).unwrap();
+            fs::write(d.path().join(name).join("lib.rs"), "fn retained() {}\n").unwrap();
+        }
+        rebuild(d.path()).unwrap();
+        remove_path_prefix(d.path(), "a_b").unwrap();
+        assert_eq!(definitions(d.path(), "retained").unwrap().len(), 2);
+        remove_path_prefix(d.path(), "a%b").unwrap();
+        let remaining = definitions(d.path(), "retained").unwrap();
+        assert_eq!(remaining.len(), 1);
+        assert_eq!(remaining[0].path, "axb/lib.rs");
+    }
+
     #[test]
     fn indexes_multiple_languages_exactly() {
         let d = tempfile::tempdir().unwrap();

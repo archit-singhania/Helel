@@ -8,7 +8,15 @@ export interface AuditEntry { timestampMs: number; action: string; risk: Risk; a
 const TERMINAL_HISTORY_LIMIT = 2_000;
 
 export function appendTerminalHistory(current: string[], ...entries: string[]) {
-  return [...current, ...entries].slice(-TERMINAL_HISTORY_LIMIT);
+  const result: string[] = [];
+  let remaining = 262_144;
+  const all = [...current, ...entries];
+  for (let index = all.length - 1; index >= 0 && remaining > 0 && result.length < TERMINAL_HISTORY_LIMIT; index -= 1) {
+    const entry = all[index].slice(-remaining);
+    result.push(entry);
+    remaining -= entry.length + 1;
+  }
+  return result.reverse();
 }
 
 export function parseCommand(input: string): { command: string; args: string[] } | undefined {

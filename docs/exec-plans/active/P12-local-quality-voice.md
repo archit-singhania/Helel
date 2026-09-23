@@ -45,3 +45,11 @@ Useful release weights require owner-approved local sources and enough Apple Sil
 - Offline voice is implemented with bounded Web Audio capture, local `whisper.cpp`, automatic language detection, editable transcripts, macOS speech output, audit records, and temporary-file deletion. The local multilingual base model checksum is `60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe`.
 - A synthetic 3.3-second speech test was transcribed correctly on Apple M3 using local Metal inference. The repository verification gate passed in full.
 - Slice 7 remains open: approve a materially larger multilingual source registry, train 22M candidates until held-out proposal/tool metrics pass, and only then spend compute on 46M and quantization comparisons.
+
+## September 22 reliability audit scope
+
+Review the existing local preview, correct bounded watcher/output/index defects, and run the complete verification gate. Record GUI coverage and unresolved native-command scheduling and model-quality limitations without treating unit tests as full desktop acceptance.
+
+September 23 follow-up: correct save acknowledgement and voice resource lifetimes; rerun repository verification. Native scheduling, cancellation, and workspace ownership remain open reliability work.
+
+Second September 23 follow-up: remove idle native watcher waits; reconcile cached file metadata at reopen and directory-event descendants; isolate active-project state and reject overlapping opens. Validate with the full gate; retain explicit limits around synchronous long operations.

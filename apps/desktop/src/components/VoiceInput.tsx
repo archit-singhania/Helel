@@ -1,40 +1,67 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { workspaceApi } from "../api";
 import { Icon } from "../App";
 
 type Recorder = { context: AudioContext; stream: MediaStream; source: MediaStreamAudioSourceNode; processor: ScriptProcessorNode; chunks: Float32Array[]; samples: number };
 
 export function VoiceInput({ program, model, onTranscript }: { program: string; model: string; onTranscript: (text: string) => void }) {
+  const generation = useRef(0);
+  const busy = useRef(false);
   const recorder = useRef<Recorder | undefined>(undefined);
   const timer = useRef<number | undefined>(undefined);
-  const [state, setState] = useState<"idle" | "recording" | "transcribing">("idle");
+  const [state, setState] = useState<"idle" | "requesting" | "recording" | "transcribing">("idle");
+
+  useEffect(() => () => {
+    generation.current += 1;
+    window.clearTimeout(timer.current);
+    const active = recorder.current;
+    recorder.current = undefined;
+    if (active) {
+      active.processor.onaudioprocess = null;
+      active.processor.disconnect(); active.source.disconnect();
+      active.stream.getTracks().forEach((track) => track.stop());
+      void active.context.close().catch(() => {});
+    }
+    busy.current = false;
+  }, []);
 
   const stop = async () => {
+    const token = generation.current;
     window.clearTimeout(timer.current);
     const active = recorder.current;
     recorder.current = undefined;
     if (!active) return;
     active.processor.disconnect(); active.source.disconnect(); active.stream.getTracks().forEach((track) => track.stop());
+    active.processor.onaudioprocess = null;
     const sampleRate = active.context.sampleRate;
-    await active.context.close();
+    await active.context.close().catch(() => {});
+    if (token !== generation.current) return;
+    busy.current = false;
     if (!program.trim() || !model.trim()) { setState("idle"); window.alert("Configure a local whisper.cpp executable and model in Settings first."); return; }
     const approved = window.confirm(`Transcribe this recording locally?\n\nExecutable: ${program}\nModel: ${model}\n\nAudio is deleted immediately after transcription.`);
     if (!approved) { setState("idle"); return; }
+    busy.current = true;
     setState("transcribing");
     try {
       const wav = encodeWav(active.chunks, active.samples, sampleRate);
       const transcript = await workspaceApi.transcribeVoice(Array.from(wav), program.trim(), model.trim(), true);
-      if (transcript) onTranscript(transcript);
-    } catch (error) { window.alert(String(error)); }
-    finally { setState("idle"); }
+      if (token === generation.current && transcript) onTranscript(transcript);
+    } catch (error) { if (token === generation.current) window.alert(String(error)); }
+    finally { if (token === generation.current) { busy.current = false; setState("idle"); } }
   };
 
   const start = async () => {
     if (state === "recording") { await stop(); return; }
-    if (state !== "idle") return;
+    if (state !== "idle" || busy.current) return;
+    busy.current = true;
+    setState("requesting");
+    const token = generation.current;
+    let stream: MediaStream | undefined;
+    let context: AudioContext | undefined;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-      const context = new AudioContext();
+      stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      if (token !== generation.current) { stream.getTracks().forEach((track) => track.stop()); return; }
+      context = new AudioContext();
       const source = context.createMediaStreamSource(stream);
       const processor = context.createScriptProcessor(4096, 1, 1);
       const silent = context.createGain(); silent.gain.value = 0;
@@ -42,10 +69,14 @@ export function VoiceInput({ program, model, onTranscript }: { program: string; 
       processor.onaudioprocess = (event) => { const chunk = new Float32Array(event.inputBuffer.getChannelData(0)); value.chunks.push(chunk); value.samples += chunk.length; };
       source.connect(processor); processor.connect(silent); silent.connect(context.destination);
       recorder.current = value; setState("recording"); timer.current = window.setTimeout(() => void stop(), 30_000);
-    } catch (error) { window.alert(`Microphone unavailable: ${String(error)}`); }
+    } catch (error) {
+      stream?.getTracks().forEach((track) => track.stop());
+      if (context) void context.close().catch(() => {});
+      if (token === generation.current) { busy.current = false; setState("idle"); window.alert(`Microphone unavailable: ${String(error)}`); }
+    }
   };
 
-  return <button type="button" className={`voice-button ${state}`} onClick={() => void start()} disabled={state === "transcribing"} title={state === "recording" ? "Stop recording" : "Dictate task locally"} aria-label={state === "recording" ? "Stop voice recording" : "Dictate agent objective locally"}><Icon name="mic" /><span>{state === "recording" ? "Listening" : state === "transcribing" ? "Transcribing" : "Voice"}</span></button>;
+  return <button type="button" className={`voice-button ${state}`} onClick={() => void start()} disabled={state === "transcribing" || state === "requesting"} title={state === "recording" ? "Stop recording" : "Dictate task locally"} aria-label={state === "recording" ? "Stop voice recording" : "Dictate agent objective locally"}><Icon name="mic" /><span>{state === "recording" ? "Listening" : state === "transcribing" ? "Transcribing" : "Voice"}</span></button>;
 }
 
 function encodeWav(chunks: Float32Array[], sampleCount: number, sourceRate: number) {

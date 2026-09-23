@@ -23,7 +23,15 @@ describe("editor state", () => {
     expect(upsertTab(opened, opened[0])).toHaveLength(1);
     const changed = updateTab(opened, "src/main.ts", "two");
     expect(isDirty(changed[0])).toBe(true);
-    expect(isDirty(markSaved(changed, "src/main.ts")[0])).toBe(false);
+    expect(isDirty(markSaved(changed, "src/main.ts", "two")[0])).toBe(false);
+  });
+
+  it("keeps edits made during a save dirty", () => {
+    const tabs = [{ path: "main.ts", content: "newer edit", savedContent: "original" }];
+    const acknowledged = markSaved(tabs, "main.ts", "submitted edit");
+    expect(acknowledged[0].savedContent).toBe("submitted edit");
+    expect(acknowledged[0].content).toBe("newer edit");
+    expect(isDirty(acknowledged[0])).toBe(true);
   });
 
   it("maps common file extensions to Monaco languages", () => {
@@ -37,6 +45,11 @@ describe("editor state", () => {
 });
 
 describe("terminal input", () => {
+  it("bounds a single oversized terminal chunk", () => {
+    const result = appendTerminalHistory(["old"], "x".repeat(1_000_000));
+    expect(result.join("\n").length).toBeLessThanOrEqual(262_144);
+    expect(result.at(-1)?.endsWith("xxx")).toBe(true);
+  });
   it("parses arguments without invoking a shell", () => {
     expect(parseCommand('git commit -m "local change"')).toEqual({ command: "git", args: ["commit", "-m", "local change"] });
     expect(parseCommand("sh -c 'unterminated")).toBeUndefined();

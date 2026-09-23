@@ -32,3 +32,7 @@ Helel is a verified offline developer preview with a model-driven bounded agent 
 - A useful private model requires a materially larger legally approved local corpus, owned compute time, and repeated leakage-free evaluation. The current trained candidate explicitly failed selection and is not the app default.
 - Clean-machine macOS testing, two-hour soak testing, accessibility testing, and Windows/Linux release checks require the respective user or CI machines.
 - The source-checkout manual test gate is open for disposable repositories. Release acceptance remains closed until clean-machine, soak, accessibility and cross-platform checks pass.
+
+## September 22 reassessment
+
+See [the reliability audit](RELIABILITY_AUDIT_2026-09-22.md) for corrected evidence boundaries and unresolved findings. Previous component completion labels do not certify smooth native end-to-end behavior. Synchronous native operations, cancellation lock contention, cache reconciliation, and several UI lifecycle defects remain open.

@@ -32,11 +32,9 @@ impl WorkspaceWatcher {
         let mut watcher = notify::recommended_watcher(move |event: notify::Result<Event>| {
             let event = event.map(|mut event| {
                 event.paths.retain(|path| {
-                    path.strip_prefix(&watched_root)
-                        .ok()
-                        .and_then(|relative| relative.components().next())
-                        .is_none_or(|component| {
-                            !matches!(
+                    path.strip_prefix(&watched_root).is_ok_and(|relative| {
+                        !relative.components().any(|component| {
+                            matches!(
                                 component.as_os_str().to_str(),
                                 Some(
                                     ".git"
@@ -45,9 +43,11 @@ impl WorkspaceWatcher {
                                         | "node_modules"
                                         | "target"
                                         | "dist"
+                                        | "__pycache__"
                                 )
                             )
                         })
+                    })
                 });
                 event
             });
@@ -83,7 +83,10 @@ impl WorkspaceWatcher {
             Err(mpsc::RecvTimeoutError::Timeout) => return Ok(vec![]),
             Err(error) => return Err(io::Error::other(error)),
         }
-        while let Ok(event) = receiver.try_recv() {
+        while events.len() < 512 {
+            let Ok(event) = receiver.try_recv() else {
+                break;
+            };
             events.push(event.map_err(io::Error::other)?);
         }
         Ok(events
@@ -110,6 +113,24 @@ mod tests {
         let watcher = WorkspaceWatcher::start(d.path()).unwrap();
         fs::write(d.path().join("changed.txt"), "value").unwrap();
         let _events = watcher.changes(Duration::from_millis(100)).unwrap();
+    }
+
+    #[test]
+    fn ignores_nested_dependencies() {
+        let d = tempfile::tempdir().unwrap();
+        let nested = d.path().join("apps/web/node_modules/pkg");
+        fs::create_dir_all(&nested).unwrap();
+        let watcher = WorkspaceWatcher::start(d.path()).unwrap();
+        fs::write(nested.join("index.js"), "export const value = 1;").unwrap();
+        for _ in 0..5 {
+            let events = watcher.changes(Duration::from_millis(100)).unwrap();
+            assert!(
+                events
+                    .iter()
+                    .flat_map(|event| &event.paths)
+                    .all(|path| !path.contains("node_modules"))
+            );
+        }
     }
 
     #[test]

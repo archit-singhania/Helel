@@ -178,6 +178,47 @@ impl CodeIndex {
         }
     }
 
+    /// Checks cached file membership, sizes, and modification times on reopen.
+    ///
+    /// # Errors
+    /// Returns an error if the workspace cannot be traversed.
+    pub fn is_current(&self, root: &Path) -> io::Result<bool> {
+        let root = root.canonicalize()?;
+        let mut paths = Vec::new();
+        collect(&root, &root, &mut paths)?;
+        paths.sort();
+        paths.truncate(MAX_FILES);
+        let cached: HashMap<_, _> = self
+            .files
+            .iter()
+            .map(|file| (file.path.as_str(), file))
+            .collect();
+        let mut count = 0;
+        for path in paths {
+            let relative = relative_path(&root, &path)?;
+            if language_for(&path) == "text" && !is_manifest(&relative) {
+                continue;
+            }
+            let metadata = path.metadata()?;
+            if metadata.len() > MAX_FILE_BYTES {
+                continue;
+            }
+            let Some(file) = cached.get(relative.as_str()) else {
+                return Ok(false);
+            };
+            let modified_ms = metadata
+                .modified()?
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis();
+            if file.bytes != metadata.len() || file.modified_ms != modified_ms {
+                return Ok(false);
+            }
+            count += 1;
+        }
+        Ok(count == self.files.len())
+    }
+
     /// Reindexes one existing text file without rebuilding the repository.
     ///
     /// # Errors
@@ -521,6 +562,24 @@ fn identifiers(line: &str) -> Vec<(usize, String)> {
 mod tests {
     use super::CodeIndex;
     use std::fs;
+    #[test]
+    fn detects_offline_changes_and_directory_moves() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        fs::write(root.join("main.rs"), "fn original() {} ").unwrap();
+        let index = CodeIndex::build(root).unwrap();
+        assert!(index.is_current(root).unwrap());
+        fs::write(root.join("main.rs"), "fn changed_with_new_size() {}").unwrap();
+        assert!(!index.is_current(root).unwrap());
+        let index = CodeIndex::build(root).unwrap();
+        fs::create_dir(root.join("incoming")).unwrap();
+        fs::write(root.join("incoming/child.rs"), "fn child() {}").unwrap();
+        assert!(!index.is_current(root).unwrap());
+        let index = CodeIndex::build(root).unwrap();
+        fs::remove_file(root.join("main.rs")).unwrap();
+        assert!(!index.is_current(root).unwrap());
+    }
+
     #[test]
     fn indexes_persists_and_retrieves_context() {
         let directory = tempfile::tempdir().unwrap();

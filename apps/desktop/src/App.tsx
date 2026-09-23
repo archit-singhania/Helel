@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { listen } from "@tauri-apps/api/event";
 import { workspaceApi } from "./api";
@@ -46,14 +46,64 @@ export function App() {
   const [modelRunning, setModelRunning] = useState(false);
   const [mcpRunning, setMcpRunning] = useState(false);
   const [mcpSummary, setMcpSummary] = useState("");
-  const currentProject = settings.recentProjects[0];
+  const [currentProject, setCurrentProject] = useState<string>();
+  const initialProject = useRef(settings.recentProjects[0]);
+  const startupAttempted = useRef(false);
+  const projectOpening = useRef(false);
 
   useEffect(() => saveSettings(settings), [settings]);
   useEffect(() => { const media = window.matchMedia("(prefers-color-scheme: light)"); const apply = () => { const theme = settings.theme === "system" ? (media.matches ? "light" : "dark") : settings.theme; document.documentElement.dataset.theme = theme; document.documentElement.style.colorScheme = theme; }; apply(); media.addEventListener("change", apply); return () => media.removeEventListener("change", apply); }, [settings.theme]);
 
-  const loadProject = useCallback(async (path: string) => { try { setMessage(`Opening ${projectName(path)}…`); const snapshot = await openProjectOnce(path); setTree(snapshot.tree); setTabs([]); setActivePath(undefined); setProblems([]); setSettings((current) => withRecentProject(current, path)); setIndex(snapshot.index); setAgents(snapshot.agents); setMessage(`Opened ${projectName(path)} · ${snapshot.index.files.length} indexed files`); } catch (error) { setMessage(String(error)); } }, []);
-  useEffect(() => { if (currentProject) void loadProject(currentProject); }, [currentProject, loadProject]);
-  useEffect(() => { if (!currentProject) return; let active = true; const watch = async () => { while (active) { try { const events = await workspaceApi.changes(); if (events.length) { setTree(await workspaceApi.refresh()); const paths = events.flatMap((event) => event.paths); setTabs((openTabs) => { const conflicted = openTabs.filter((tab) => isDirty(tab) && paths.some((path) => path.endsWith(tab.path))); if (conflicted.length) setMessage(`External change conflicts with unsaved ${conflicted[0].path}`); return openTabs; }); } } catch { if (active) await new Promise((resolve) => window.setTimeout(resolve, 500)); } } }; void watch(); return () => { active = false; }; }, [currentProject]);
+  const loadProject = useCallback(async (path: string) => {
+    if (projectOpening.current) { setMessage("A project is already opening; wait for it to finish"); return; }
+    if (path === currentProject) return;
+    if (activeProcess) { setMessage("Stop the active terminal before switching projects"); return; }
+    if (tabs.some(isDirty) && !window.confirm("Discard unsaved edits and switch projects?")) return;
+    projectOpening.current = true;
+    setCurrentProject(undefined);
+    setTree([]); setTabs([]); setActivePath(undefined); setProblems([]);
+    setSearchResults([]); setGit(undefined); setIndex(undefined); setAgents([]);
+    try {
+      setMessage(`Opening ${projectName(path)}…`);
+      const snapshot = await openProjectOnce(path);
+      setTree(snapshot.tree); setIndex(snapshot.index); setAgents(snapshot.agents);
+      setSettings((current) => withRecentProject(current, path));
+      setCurrentProject(path);
+      setMessage(`Opened ${projectName(path)} · ${snapshot.index.files.length} indexed files`);
+    } catch (error) { setMessage(String(error)); }
+    finally { projectOpening.current = false; }
+  }, [activeProcess, currentProject, tabs]);
+  useEffect(() => {
+    if (startupAttempted.current) return;
+    startupAttempted.current = true;
+    if (initialProject.current) void loadProject(initialProject.current);
+  }, [loadProject]);
+  useEffect(() => {
+    if (!currentProject) return;
+    let active = true;
+    const watch = async () => {
+      while (active) {
+        try {
+          const events = await workspaceApi.changes();
+          if (!active) return;
+          if (events.length) {
+            const nextTree = await workspaceApi.refresh();
+            if (!active) return;
+            setTree(nextTree);
+            const paths = events.flatMap((event) => event.paths);
+            setTabs((openTabs) => {
+              const conflicted = openTabs.filter((tab) => isDirty(tab) && paths.some((path) => path.endsWith(tab.path)));
+              if (conflicted.length) setMessage(`External change conflicts with unsaved ${conflicted[0].path}`);
+              return openTabs;
+            });
+          }
+        } catch (error) { if (active) setMessage(`Workspace watcher: ${String(error)}`); }
+        await new Promise((resolve) => window.setTimeout(resolve, 250));
+      }
+    };
+    void watch();
+    return () => { active = false; };
+  }, [currentProject]);
   useEffect(() => { const cleanups = Promise.all([listen<ProcessOutput>("process-output", ({ payload }) => setTerminalOutput((lines) => appendTerminalHistory(lines, `${payload.stream === "stderr" ? "! " : ""}${payload.line}`))), listen<ProcessExit>("process-exit", ({ payload }) => { setTerminalOutput((lines) => appendTerminalHistory(lines, `[exit ${payload.exitCode ?? "signal"}]`)); setActiveProcess((current) => current === payload.id ? undefined : current); void workspaceApi.refresh().then(setTree); void refreshGit(); })]); return () => { void cleanups.then((items) => items.forEach((unlisten) => unlisten())); }; }, []);
   useEffect(() => { if (!activeProcess) return; let active = true; const poll = async () => { while (active) { try { const update = await workspaceApi.readTerminal(activeProcess); if (update.output) setTerminalOutput((lines) => appendTerminalHistory(lines, update.output)); if (!update.running) { setActiveProcess(undefined); setTerminalOutput((lines) => appendTerminalHistory(lines, "[process exited]")); void refreshGit(); break; } } catch { break; } await new Promise((resolve) => window.setTimeout(resolve, 120)); } }; void poll(); return () => { active = false; }; }, [activeProcess]);
   async function chooseProject() { const selected = await open({ directory: true, multiple: false, title: "Open a project in Helel" }); if (typeof selected === "string") await loadProject(selected); }
@@ -63,8 +113,8 @@ export function App() {
   async function toggleModel() { try { if (modelRunning) { await workspaceApi.stopModel(); setModelRunning(false); setMessage("Local model stopped"); } else { if (!settings.modelConfig || !settings.modelTokenizer || !settings.modelWeights) { setMessage("Select config, tokenizer, and weights first"); return; } await workspaceApi.startModel(settings.modelProgram, settings.modelArgs.trim() ? settings.modelArgs.trim().split(/\s+/) : [], settings.modelConfig, settings.modelTokenizer, settings.modelWeights, true); setModelRunning(true); setMessage("Local model is healthy"); } } catch (error) { setModelRunning(false); setMessage(String(error)); } }
   async function toggleMcp() { try { if (mcpRunning) { await workspaceApi.stopMcp(settings.mcpName); setMcpRunning(false); setMcpSummary(""); setMessage("MCP server stopped"); return; } if (!settings.mcpName.trim() || !settings.mcpProgram.trim()) { setMessage("Enter an MCP name and executable"); return; } const server = { name: settings.mcpName.trim(), program: settings.mcpProgram.trim(), args: settings.mcpArgs.trim() ? settings.mcpArgs.trim().split(/\s+/) : [], enabled: true }; await workspaceApi.saveMcp([server], true); await workspaceApi.startMcp(server.name, true); const tools = await workspaceApi.callMcp(server.name, "tools/list", {}, true); setMcpRunning(true); setMcpSummary(`${Array.isArray(tools.tools) ? tools.tools.length : 0} tools discovered`); setMessage(`MCP ${server.name} initialized`); } catch (error) { setMcpRunning(false); setMessage(String(error)); } }
   async function openFile(path: string, line?: number) { try { const existing = tabs.find((tab) => tab.path === path); if (!existing) { const content = await workspaceApi.read(path); setTabs((current) => upsertTab(current, { path, content, savedContent: content })); } setActivePath(path); setMessage(line ? `${path}:${line}` : path); } catch (error) { setMessage(String(error)); } }
-  async function saveOne(path: string) { const tab = tabs.find((item) => item.path === path); if (!tab) return; try { await workspaceApi.save(path, tab.content); setTabs((current) => markSaved(current, path)); setMessage(`Saved ${path}`); } catch (error) { setMessage(String(error)); } }
-  async function saveAll() { for (const tab of tabs.filter(isDirty)) await workspaceApi.save(tab.path, tab.content); setTabs((current) => current.map((tab) => ({ ...tab, savedContent: tab.content }))); setMessage("Saved all files"); }
+  async function saveOne(path: string) { const tab = tabs.find((item) => item.path === path); if (!tab) return; try { await workspaceApi.save(path, tab.content); setTabs((current) => markSaved(current, path, tab.content)); setMessage(`Saved ${path}`); } catch (error) { setMessage(String(error)); } }
+  async function saveAll() { try { for (const tab of tabs.filter(isDirty)) { await workspaceApi.save(tab.path, tab.content); setTabs((current) => markSaved(current, tab.path, tab.content)); } setMessage("Saved all files"); } catch (error) { setMessage(`Save failed: ${String(error)}`); } }
   function closeTab(path: string) { const tab = tabs.find((item) => item.path === path); if (tab && isDirty(tab) && !window.confirm(`Discard unsaved changes to ${path}?`)) return; const index = tabs.findIndex((item) => item.path === path); const next = tabs.filter((item) => item.path !== path); setTabs(next); if (activePath === path) setActivePath(next[Math.max(0, index - 1)]?.path); setProblems((items) => items.filter((problem) => problem.path !== path)); }
   async function mutate(kind: "file" | "folder" | "rename" | "delete", selected?: string) { try { let next: TreeEntry[] | undefined; if (kind === "file" || kind === "folder") { const path = window.prompt(`New ${kind} path`); if (path) next = await workspaceApi.create(path, kind === "folder"); } else if (kind === "rename" && selected) { const to = window.prompt("Rename to", selected); if (to && to !== selected) { next = await workspaceApi.rename(selected, to); setTabs((items) => items.filter((tab) => tab.path !== selected)); } } else if (kind === "delete" && selected && window.confirm(`Delete ${selected}? Non-empty folders are protected.`)) { next = await workspaceApi.delete(selected); closeTab(selected); } if (next) { setTree(next); setMessage(`${kind} completed`); } } catch (error) { setMessage(String(error)); } }
   async function search(query: string) { try { setSearchResults(await workspaceApi.search(query)); } catch (error) { setMessage(String(error)); } }
